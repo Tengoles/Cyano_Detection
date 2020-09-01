@@ -9,11 +9,14 @@ def bands_to_array(bands_dict):
         output[:, :, i] = bands_dict[band]
     return output
 
+def normalize_array(array):
+    return cv2.normalize(src=array, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+
 def display_sat_data(array, wait=True):
-    img_n = cv2.normalize(src=array, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    img_n = normalize_array(array)
     img_n = cv2.cvtColor(img_n, cv2.COLOR_RGB2BGR)
-    img_n = cv2.resize(img_n, (img_n.shape[0]*5, img_n.shape[1]*5))
-    cv2.imshow("RGB", img_n)
+    img_n = cv2.resize(img_n, (img_n.shape[0]*6, img_n.shape[1]*6))
+    cv2.imshow("Image", img_n)
     if not wait:
         cv2.waitKey(1)
     else:

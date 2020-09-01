@@ -4,7 +4,6 @@ import settings
 import snappy
 from snappy import ProductIO, WKTReader, HashMap, GPF
 import numpy as np
-from osgeo import gdal
 
 def read_product(product_path):
     print("Reading %s" % product_path)
@@ -22,6 +21,7 @@ def make_subset(product, wkt):
     return sub_product
     
 def apply_rayleigh_correction(product, bands):
+    #Must be BEAM-DIMAP product or will throw null pointer error
     parameters = HashMap()
     bands_string = ""
     for band in bands:
@@ -57,20 +57,6 @@ def write_product(product, path, p_type):
     #Algunas opciones de p_type: "GeoTiff":.tif y "BEAM-DIMAP":.dim
     print("Writing %s to %s" % (p_type, path))
     ProductIO.writeProduct(product, path, p_type)
-
-"""def get_bands(product, bands):
-    width = product.getSceneRasterWidth()
-    height = product.getSceneRasterHeight()
-    #_ = np.zeros(width, dtype=np.float32)
-    output_dict = {}
-    for b in bands:
-        band_product = product.getBand(b)
-        band_array = np.zeros((height, width), dtype=np.float32)
-        for y in range(height):
-            _ = np.zeros(width, dtype=np.float32)
-            band_array[y,:] = band_product.readPixels(0, y, width, 1, _)
-        output_dict[b] = band_array
-    return output_dict"""
 
 def get_bands(product, bands):
     width = product.getSceneRasterWidth()
