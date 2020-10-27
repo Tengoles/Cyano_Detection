@@ -40,7 +40,7 @@ def apply_rayleigh_correction(product, bands):
     rayleigh_output = GPF.createProduct('RayleighCorrection', parameters, product)
     return rayleigh_output
 
-def apply_mph(product, cyano_max_value=1000.0, chl_th_float_flag=500.0):
+def apply_mph(product, cyano_max_value=1000.0, chl_th_float_flag=350.0):
     parameters = HashMap()
     parameters.put('validPixelExpression', 'quality_flags.fresh_inland_water')
     parameters.put("cyanoMaxValue", cyano_max_value)
