@@ -8,8 +8,6 @@ class MPH():
         self.brr_11 = brrs_arrays["rBRR_11"]
         self.brr_12 = brrs_arrays["rBRR_12"]
         self.brr_18 = brrs_arrays["rBRR_18"]
-
-        self.quality_flags = brrs_arrays["quality_flags"]
         
         self.Rmax0, self.Rmax1 = self.determine_Rmax()
         self.lambda_max0, self.lambda_max1 = self.determine_lambdaMax()
@@ -26,7 +24,20 @@ class MPH():
 
         self.MPH1 = self.Rmax1 - self.brr_8 - ((self.brr_18 - self.brr_8)*(self.lambda_max1 - 665))/(885 - 665)
 
-        self.output = self.run_mph(cyano_thresh)
+        _mph_output = self.run_mph(cyano_thresh)
+
+        self.immersed_cyanobacteria = np.logical_and(_mph_output["cyano_flag"], 
+                                                    np.logical_not(_mph_output["float_flag"]))
+        self.floating_cyanobacteria = np.logical_and(_mph_output["cyano_flag"], 
+                                                    _mph_output["float_flag"])
+        self.floating_vegetation = np.logical_and(_mph_output["float_flag"],
+                                                np.logical_not(_mph_output["cyano_flag"]), 
+                                                np.logical_not(_mph_output["adj_flag"]))
+        self.immersed_eukaryotes = np.logical_and(np.logical_not(_mph_output["float_flag"]),
+                                                np.logical_not(_mph_output["cyano_flag"]))
+
+        self.chl = _mph_output["chl_mph"]
+
         
     def determine_Rmax(self):
         Rmax0 = np.maximum(self.brr_10, self.brr_11)

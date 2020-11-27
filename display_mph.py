@@ -12,7 +12,7 @@ product = snappy_utils.read_product(path)
 quality_flags = snappy_utils.get_bands(product, ["quality_flags"])["quality_flags"]
 
 bands = ["Oa07_radiance", "Oa08_radiance", "Oa10_radiance",
-        "Oa11_radiance", "Oa12_radiance", "Oa18_radiance"]
+        "Oa11_radiance", "Oa12_radiance", "Oa18_radiance"]s
 
 rgb_bands = ["Oa09_radiance", "Oa08_radiance", "Oa06_radiance",
             "Oa14_radiance", "Oa04_radiance"]
@@ -38,7 +38,7 @@ mph_arrays = snappy_utils.get_bands(mph_product, mph_bands)
 mph = MPH(brrs_arrays)
 water_mask = utils.make_flags_mask(quality_flags, ["fresh_inland_water"])
 q_flags = mph.quality_flags
-mph = mph.output
+
 
 fig = plt.figure()
 fig.add_subplot(231).title.set_text("immersed_cyanobacteria SNAP")
@@ -53,11 +53,14 @@ fig.tight_layout()
 
 fig2 = plt.figure()
 fig2.add_subplot(231).title.set_text("immersed cyanobacteria Enzo")
-plt.imshow(np.logical_and(mph["cyano_flag"], np.logical_not(mph["float_flag"]))*water_mask, cmap="gray")
+#plt.imshow(np.logical_and(mph["cyano_flag"], np.logical_not(mph["float_flag"]))*water_mask, cmap="gray")
+plt.imshow(mph.immersed_cyanobacteria*water_mask, cmap="gray")
 fig2.add_subplot(232).title.set_text("floating cyanobacteria Enzo")
-plt.imshow(np.logical_and(mph["cyano_flag"], mph["float_flag"])*water_mask, cmap="gray")
+#plt.imshow(np.logical_and(mph["cyano_flag"], mph["float_flag"])*water_mask, cmap="gray")
+plt.imshow(mph.floating_cyanobacteria*water_mask, cmap="gray")
 fig2.add_subplot(233).title.set_text("floating vegetation Enzo")
-plt.imshow(np.logical_and(mph["float_flag"],np.logical_not(mph["cyano_flag"]), np.logical_not(mph["adj_flag"]))*water_mask, cmap="gray")
+#plt.imshow(np.logical_and(mph["float_flag"],np.logical_not(mph["cyano_flag"]), np.logical_not(mph["adj_flag"]))*water_mask, cmap="gray")
+plt.imshow(mph.floating_vegetation*water_mask, cmap="gray")
 fig2.add_subplot(235).title.set_text("RGB view")
 plt.imshow(utils.histogram_equalization(utils.normalize_array(trueColor_array))) 
 fig2.tight_layout()
@@ -74,7 +77,8 @@ pos = ax1.imshow(np.nan_to_num(mph_arrays["chl"]*water_mask), cmap='jet', interp
 fig3.colorbar(pos, ax=ax1)
 
 # repeat everything above for the negative data
-neg = ax2.imshow(mph["chl_mph"]*water_mask, cmap='jet', interpolation='none')
+#neg = ax2.imshow(mph["chl_mph"]*water_mask, cmap='jet', interpolation='none')
+neg = ax2.imshow(mph.chl*water_mask, cmap='jet', interpolation='none')
 fig3.colorbar(neg, ax=ax2)
 fig3.tight_layout()
 plt.show()

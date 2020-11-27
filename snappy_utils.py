@@ -6,7 +6,7 @@ from snappy import ProductIO, WKTReader, HashMap, GPF
 import numpy as np
 
 def read_product(product_path):
-    print("Reading %s" % product_path)
+    #print("Reading %s" % product_path)
     product = ProductIO.readProduct(product_path)
     return product
 
@@ -27,7 +27,7 @@ def apply_rayleigh_correction(product, bands):
     for band in bands:
         bands_string += band + ","
     bands_string = bands_string[:-1]
-    print(bands_string)
+    #print(bands_string)
     parameters.put("sourceBandNames", bands_string)
     parameters.put("computeTaur", "false")
     parameters.put("computeRBrr", "true")

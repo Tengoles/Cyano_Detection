@@ -67,7 +67,7 @@ class Sentinelsat_products:
                 snappy_utils.write_product(subset, os.path.join(download_path, "laguna.dim"), "BEAM-DIMAP")
                 
 if __name__=="__main__":
-    datos = Sentinelsat_products(date(2020, 3, 13), date(2020, 4, 4))
+    datos = Sentinelsat_products(date(2019, 12, 21), date(2019, 12, 27))
     datos.filter_products(instrument="OLCI", level="L1", p_type= "FR", timeliness="Non Time Critical")
     datos.download_products()
 
