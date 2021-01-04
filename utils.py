@@ -44,6 +44,22 @@ def display_tristimulus(product, wait=True):
 def stretch(val, min, max):
     return (val-min)/(max-min)
 
+def stretch_to_MinMax(arr, verbose=False):
+    # get array maximum value
+    min_val = np.amin(arr)
+    # get array minimum value
+    max_val = np.amax(arr)
+    if (verbose == True):
+        print("Min: {}".format(min_val))
+        print("Max: {}".format(max_val))
+    # strech array to min and max
+    stretched = (arr-min_val)/(max_val-min_val)
+    # map to 0-255
+    stretched = stretched*255
+    # cast entire array to int
+    stretched = stretched.astype(int)
+    return stretched
+
 def enhanced_true_color(B09, B08, B06, B14, B04):
     brightness = 1
     index = (B04-B08)/(B06+B09)
