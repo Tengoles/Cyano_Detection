@@ -15,6 +15,8 @@ for day_directory in os.listdir(data_path):
             final_file_path = os.path.join(day_directory_path, file)
             print(final_file_path)
             days_to_process.append(final_file_path)
+        if ".zip" in file:
+            os.remove(os.path.join(day_directory_path, file))
 print("Downloaded files:", len(days_to_process))
 # Make file with paths to be loaded by ACOLITE
 acolite_settings = {"limit": settings.limit,
@@ -24,7 +26,7 @@ acolite_settings = {"limit": settings.limit,
                    "l2w_export_geotiff": settings.l2w_export_geotiff,
                    "export_geotiff_coordinates": settings.export_geotiff_coordinates}
 
-for product_path in days_to_process[0:1]:
+for product_path in days_to_process:
     acolite_settings["inputfile"] = product_path
     acolite_settings["output"] = os.path.dirname(product_path)
     
