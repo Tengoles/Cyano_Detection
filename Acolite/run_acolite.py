@@ -15,8 +15,6 @@ for day_directory in os.listdir(data_path):
             final_file_path = os.path.join(day_directory_path, file)
             print(final_file_path)
             days_to_process.append(final_file_path)
-        if ".zip" in file:
-            os.remove(os.path.join(day_directory_path, file))
 print("Downloaded files:", len(days_to_process))
 # Make file with paths to be loaded by ACOLITE
 acolite_settings = {"limit": settings.limit,
