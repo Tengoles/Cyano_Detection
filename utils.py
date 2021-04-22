@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
-import snappy_utils
-from astropy.nddata import bitmask
+#import snappy_utils
+#from astropy.nddata import bitmask
 
 def bands_to_array(bands_dict):
     data_shape = bands_dict[list(bands_dict.keys())[0]].shape
@@ -71,6 +71,16 @@ def enhanced_true_color(B09, B08, B06, B14, B04):
     output[:, :, 1] = band2
     output[:, :, 2] = band3
     return output
+
+def stretch_95(x):
+    mean = np.mean(x)
+    std = np.std(x)
+    
+    min_val = mean - 2*std
+    max_val = mean + 2*std
+    y = (x - (max_val + min_val) / 2) / (max_val - min_val)
+    y = y * (255 - 0) + (255 + 0) / 2
+    return y
 
 def histogram_equalization(img_in):
     # segregate color streams
