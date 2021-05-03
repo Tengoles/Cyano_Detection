@@ -108,6 +108,11 @@ class day_data():
         for coord in coords:
             index = self.get_pos_index(coord[0], coord[1])
             self.rgb[index[0], index[1]] = color
+            
+    def get_NDCI(self):
+        ndci = (self.bands["B5"] - self.bands["B4"])/(self.bands["B5"] + self.bands["B4"])
+        return ndci
+        
 
 def laguna_data_generator(start_date, end_date, date_format, data_path):
     start_datetime = datetime.strptime(start_date, date_format)
@@ -118,7 +123,7 @@ def laguna_data_generator(start_date, end_date, date_format, data_path):
                                                             datetime.strptime(date, date_format) >= start_datetime and 
                                                             datetime.strptime(date, date_format) <= end_datetime)]
     for directory in data_directorys:
-        print(directory)
+        #print(directory)
         if "acolite_output" in os.listdir(os.path.join(data_path, directory)):
             try:
                 instance = day_data(os.path.join(data_path, directory, "acolite_output"))
