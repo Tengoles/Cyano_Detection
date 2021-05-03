@@ -24,7 +24,7 @@ class day_data():
         # make display-ready rgb array from band data
         self.rgb = self._get_rgb_array()
         # make array with latitude and longitude for every pixel
-        self.lat_lon = self._get_lat_lon()
+        self.latitude, self.longitude = self._get_lat_lon()
     
     def _get_date(self):
         for file_name in os.listdir(self.data_path):
@@ -62,6 +62,7 @@ class day_data():
         b_stretched = utils.stretch_to_MinMax(b)
         
         rgb_stretched = np.dstack([r_stretched, g_stretched, b_stretched])
+        rgb_stretched = rgb_stretched.astype('uint8')
         return rgb_stretched
     
     def _get_lat_lon(self):
@@ -76,7 +77,8 @@ class day_data():
                 ds = gdal.Open(tif_path)
                 band = ds.GetRasterBand(1)
                 longitude = band.ReadAsArray()
-        return np.array([latitude, longitude])
+        #return np.array([latitude, longitude])
+        return latitude, longitude
     
     def show_rgb(self):
         plt.figure(figsize=(10,10))
