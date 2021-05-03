@@ -1,5 +1,6 @@
 import cv2
 import argparse
+import os
 from pathlib import Path
 import process_sentinel2
 from functools import partial
@@ -90,8 +91,10 @@ def set_points(img, defined_areas, area_name):
 
 def get_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--sample_data_path", required=True, help="path to directory with acolite output")
-    parser.add_argument("-o", "--out_json", required=True, help="json for the output results")
+    parser.add_argument("-i", "--sample_data_path", help="path to directory with acolite output", 
+                        default=os.path.join("sample_data", "2021-01-25"))
+    parser.add_argument("-o", "--out_json", help="json for the output results",
+                        default="water_mask.json")
     
     return parser
 

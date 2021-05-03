@@ -1,9 +1,11 @@
 from osgeo import gdal
 from datetime import datetime
 import numpy as np
+from shapely.geometry import Polygon, Point
 import utils
 import matplotlib.pyplot as plt
 import os
+import json
 import cv2
 
 S2A_wavelengths = {"B1": 443, "B2": 492, "B3": 560, "B4": 665, "B5": 704, "B6": 740, "B7": 783, "B8": 833, 
@@ -108,11 +110,10 @@ class day_data():
         for coord in coords:
             index = self.get_pos_index(coord[0], coord[1])
             self.rgb[index[0], index[1]] = color
-            
+    
     def get_NDCI(self):
         ndci = (self.bands["B5"] - self.bands["B4"])/(self.bands["B5"] + self.bands["B4"])
         return ndci
-        
 
 def laguna_data_generator(start_date, end_date, date_format, data_path):
     start_datetime = datetime.strptime(start_date, date_format)
@@ -131,3 +132,59 @@ def laguna_data_generator(start_date, end_date, date_format, data_path):
             except Exception as e:
                 print("Error in %s: %s" % (directory, str(e)))
                 yield None
+
+def load_mask(mask_path, width, height):
+    output = np.zeros((width, height), dtype=np.uint8)
+
+    with open(mask_path) as f:
+        data = json.load(f)
+    
+    mask_absolute_coords = np.array([[p['x']*width, p['y']*height] for p in data["valid water"]["relative points"]], np.int32)
+    mask_polygon = Polygon(mask_absolute_coords)
+
+    for i, row in enumerate(output):
+        for j, value in enumerate(row):
+            if mask_polygon.contains(Point([j, i])):
+                output[i, j] = 255
+
+    return output
+    
+
+if __name__ == "__main__":
+    import settings
+    
+    DATA_PATH = os.path.join("sample_data", "2021-01-25")
+    DATE_FORMAT = '%Y-%m-%d'
+    START_DATE = '2016-12-21'
+    END_DATE = '2021-04-20'
+    
+    sample_day = day_data(os.path.join(settings.data_path, "2021-01-25"))
+    data_generator = laguna_data_generator(START_DATE, END_DATE, DATE_FORMAT, DATA_PATH)
+
+    mask_path = "water_mask.json"
+    width, height , _ = sample_day.rgb.shape
+
+    mask = load_mask(mask_path, width, height)
+    mask_display = np.zeros_like(sample_day.rgb, dtype=np.uint8)
+    mask_display[:, :, 0] = mask
+    mask_display[:, :, 1] = mask
+    mask_display[:, :, 2] = mask
+
+    dst = cv2.addWeighted(mask_display, 0.2, sample_day.rgb, 0.9, 128)
+    
+    with open(mask_path) as f:
+        data = json.load(f)
+    abs_pts = np.array([[p['x']*width, p['y']*height] for p in data["valid water"]["relative points"] ], np.int32)
+    abs_pts = abs_pts.reshape((-1,1,2))
+    cv2.polylines(dst,[abs_pts],True, (0,255,255))
+    
+    cv2.namedWindow("mask", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("mask", 1000, 1000)
+    cv2.imshow("mask", dst)
+    key = cv2.waitKey(0) & 0xFF
+    cv2.destroyAllWindows()
+
+
+
+
+    
