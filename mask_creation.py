@@ -23,11 +23,12 @@ def add_point(points, width, height, coords, event, x, y, flags, param):
             'x': x,
             'y': y
         }
+        print(new_coord)
         points.append(new_point)
         coords.append(new_coord)
 
 def draw_areas(img, defined_areas):
-    width, height , _ = img.shape
+    height, width , _ = img.shape
     for defined_area_name, defined_area_points in defined_areas.items():
         pts = np.array([[p['x']*width, p['y']*height] for p in defined_area_points["relative points"]], np.int32)
         pts = pts.reshape((-1,1,2))
@@ -46,7 +47,7 @@ def draw_text(text,img, x , y, color = (255,255,255)):
 
 def set_points(img, defined_areas, area_name):
     clone = img.copy()
-    width, height , _ = img.shape
+    height, width , _ = img.shape
     points = []
     coords = []
     cv2.namedWindow("area_definition", cv2.WINDOW_NORMAL)
@@ -57,7 +58,7 @@ def set_points(img, defined_areas, area_name):
         #show areas already definited
         draw_areas(img, defined_areas)
         for defined_area_name, defined_area_points in defined_areas.items():
-            abs_pts = np.array([[p['x']*width, p['y']*height] for p in defined_area_points["relative points"] ], np.int32)
+            abs_pts = np.array([[p['x']*width, p['y']*height] for p in defined_area_points["relative points"]], np.int32)
             abs_pts = abs_pts.reshape((-1,1,2))
             cv2.polylines(img,[abs_pts],True, COLORS[defined_area_name])
 
