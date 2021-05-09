@@ -14,7 +14,7 @@ S2A_wavelengths = {"B1": 443, "B2": 492, "B3": 560, "B4": 665, "B5": 704, "B6": 
 S2B_wavelengths = {"B1": 442, "B2": 492, "B3": 559, "B4": 665, "B5": 704, "B6": 739, "B7": 780, "B8": 833, 
                    "B8A": 864, "B9": 943, "B11": 1377, "B12": 1610, "B13": 2186}
 
-class day_data():
+class DayData():
     def __init__(self, path):
         self._relevant_bands = ["B2", "B3", "B4", "B5", "B6", "B7"]
         #path to directory with acolite output
@@ -27,6 +27,10 @@ class day_data():
         self.rgb = self._get_rgb_array()
         # make array with latitude and longitude for every pixel
         self.latitude, self.longitude = self._get_lat_lon()
+        # path to json with metadata
+        self.metadata_path = os.path.join(self.data_path, "metadata.json")
+        # load metadata of day
+        self.metadata = self._get_metadata()
     
     def _get_date(self):
         for file_name in os.listdir(self.data_path):
@@ -114,40 +118,126 @@ class day_data():
     def get_NDCI(self):
         ndci = (self.bands["B5"] - self.bands["B4"])/(self.bands["B5"] + self.bands["B4"])
         return ndci
-
-def laguna_data_generator(start_date, end_date, date_format, data_path):
-    start_datetime = datetime.strptime(start_date, date_format)
-    end_datetime = datetime.strptime(end_date, date_format)
-
-    data_directorys = sorted(os.listdir(data_path))
-    data_directorys = [date for date in data_directorys if (not date.startswith(".") and
-                                                            datetime.strptime(date, date_format) >= start_datetime and 
-                                                            datetime.strptime(date, date_format) <= end_datetime)]
-    for directory in data_directorys:
-        #print(directory)
-        if "acolite_output" in os.listdir(os.path.join(data_path, directory)):
-            try:
-                instance = day_data(os.path.join(data_path, directory, "acolite_output"))
-                yield instance
-            except Exception as e:
-                print("Error in %s: %s" % (directory, str(e)))
-                yield None
-
-def load_mask(mask_path, width, height):
-    output = np.zeros((width, height), dtype=np.uint8)
-
-    with open(mask_path) as f:
-        data = json.load(f)
     
-    mask_absolute_coords = np.array([[p['x']*width, p['y']*height] for p in data["valid water"]["relative points"]], np.int32)
-    mask_polygon = Polygon(mask_absolute_coords)
+    def _get_metadata(self):
+        if os.path.exists(self.metadata_path):
+            with open(self.metadata_path) as f:
+                return json.load(f)
+        else:
+            return {}
 
-    for i, row in enumerate(output):
-        for j, value in enumerate(row):
-            if mask_polygon.contains(Point([j, i])):
-                output[i, j] = 255
+class DayDataGenerator():
+    def __init__(self, start_date, end_date, date_format, data_path, skip_invalid=False):
+        self.date_format = date_format
+        self.start_datetime = datetime.strptime(start_date, date_format)
+        self.end_datetime = datetime.strptime(end_date, date_format) 
+        self.data_path = data_path
+        self.data_directories = self._get_data_directories()
+        self.skip_invalid=skip_invalid
+        
+    def _get_data_directories(self):
+        data_directories = sorted(os.listdir(self.data_path))
+        data_directories = [date for date in data_directories if (not date.startswith(".") and
+                                                                datetime.strptime(date, self.date_format) >= self.start_datetime and 
+                                                                datetime.strptime(date, self.date_format) <= self.end_datetime)]
+        return data_directories
+    
+    def __iter__(self):
+        for directory in self.data_directories:
+            #print(directory)
+            if "acolite_output" in os.listdir(os.path.join(self.data_path, directory)):
+                metadata_path = os.path.join(self.data_path, directory, "acolite_output", "metadata.json")
+                # check if file has metadata
+                if self.skip_invalid:
+                    if os.path.exists(metadata_path):
+                        with open(metadata_path) as f:
+                            metadata =  json.load(f)
+                        if metadata["valid"] == False:
+                            continue                        
+                    else:
+                        print("No metadata:", directory)
+                        continue
+                
+                try:
+                    day_data_path = os.path.join(self.data_path, directory, "acolite_output")
+                    instance = DayData(day_data_path)
+                    yield instance
+                except Exception as e:
+                    print("Error in %s: %s" % (directory, str(e)))
+                    continue
+    
+    def __len__(self):
+        return len(self.data_directories)
+    
+    def get_valid_days_count(self):
+        output = 0
+        for day_directory in self.data_directories:
+            metadata_path = os.path.join(self.data_path, day_directory, "acolite_output", "metadata.json")
+            if os.path.exists(metadata_path):
+                with open(metadata_path) as f:
+                    metadata = json.load(f)
+                if metadata["valid"] == True:
+                    #print(day_directory)
+                    output += 1
+        print("Valid days:", output)
+        return output
+        
 
-    return output
+class Mask():
+    def __init__(self, mask_path, width, height):
+        self.width = width
+        self.height = height
+        self.path = mask_path
+        self.annotation = self._load_json()
+        self.array = self._load_mask()
+        self.rgb = self.make_rgb()
+        
+    def _load_json(self):
+        with open(self.path) as f:
+            return json.load(f)
+            
+    def _load_mask(self):
+        #output = np.zeros((self.width, self.height), dtype=np.uint8)
+        output = np.zeros((self.height, self.width), dtype=np.uint8)
+
+        with open(self.path) as f:
+            data = json.load(f)
+
+        mask_absolute_coords = [[p['x']*self.width, p['y']*self.height] for p in data["valid water"]["relative points"]]
+        mask_polygon = Polygon(mask_absolute_coords)
+
+        for i in range(self.height):
+            for j in range(self.width):
+                if mask_polygon.contains(Point([j, i])):
+                    output[i, j] = 255
+
+        return output
+    
+    def make_rgb(self):
+        mask_rgb = np.zeros((self.height, self.width, 3), dtype=np.uint8)
+        mask_rgb[:, :, 0] = self.array
+        mask_rgb[:, :, 1] = self.array
+        mask_rgb[:, :, 2] = self.array
+        
+        return mask_rgb
+    
+    def display_mask_img(self, img):
+        output = np.zeros_like(img)
+        for i, row in enumerate(img):
+            for j, rgb in enumerate(row):
+                if self.array[i,j] == 255:
+                    output[i,j,:] = np.array([255, 255, 255])
+                else:
+                    output[i,j,:] = img[i, j, :]
+
+        return output
+    
+    def display_mask_contour(self, img):
+        pts = np.array([[p['x']*self.width, p['y']*self.height] for p in self.annotation["valid water"]["relative points"]], np.int32)
+        pts = pts.reshape((-1,1,2))
+        cv2.polylines(img,[pts],True, (0,255,255))
+        
+        return img
     
 
 if __name__ == "__main__":
