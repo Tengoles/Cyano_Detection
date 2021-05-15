@@ -132,55 +132,44 @@ class DayDataGenerator():
         self.start_datetime = datetime.strptime(start_date, date_format)
         self.end_datetime = datetime.strptime(end_date, date_format) 
         self.data_path = data_path
-        self.data_directories = self._get_data_directories()
         self.skip_invalid=skip_invalid
+        self.data_directories = self._get_data_directories()
         
     def _get_data_directories(self):
         data_directories = sorted(os.listdir(self.data_path))
         data_directories = [date for date in data_directories if (not date.startswith(".") and
                                                                 datetime.strptime(date, self.date_format) >= self.start_datetime and 
                                                                 datetime.strptime(date, self.date_format) <= self.end_datetime)]
+        
+        data_directories_temp = []
+        for i, directory in enumerate(data_directories):
+            metadata_path = os.path.join(self.data_path, directory, "acolite_output", "metadata.json")
+            # days without metadata are ignored
+            if os.path.exists(metadata_path):
+                with open(metadata_path) as f:
+                    metadata =  json.load(f)
+                if self.skip_invalid:
+                    if metadata["valid"] == True:
+                        data_directories_temp.append(directory)
+                else:
+                    data_directories_temp.append(directory)
+                    
+        data_directories = data_directories_temp
+                
         return data_directories
     
     def __iter__(self):
-        for directory in self.data_directories:
-            #print(directory)
-            if "acolite_output" in os.listdir(os.path.join(self.data_path, directory)):
-                metadata_path = os.path.join(self.data_path, directory, "acolite_output", "metadata.json")
-                # check if file has metadata
-                if self.skip_invalid:
-                    if os.path.exists(metadata_path):
-                        with open(metadata_path) as f:
-                            metadata =  json.load(f)
-                        if metadata["valid"] == False:
-                            continue                        
-                    else:
-                        print("No metadata:", directory)
-                        continue
-                
-                try:
-                    day_data_path = os.path.join(self.data_path, directory, "acolite_output")
-                    instance = DayData(day_data_path)
-                    yield instance
-                except Exception as e:
-                    print("Error in %s: %s" % (directory, str(e)))
-                    continue
+        for directory in self.data_directories:                
+            try:
+                day_data_path = os.path.join(self.data_path, directory, "acolite_output")
+                instance = DayData(day_data_path)
+                yield instance
+            except Exception as e:
+                print("Error in %s: %s" % (directory, str(e)))
+                continue
     
     def __len__(self):
         return len(self.data_directories)
-    
-    def get_valid_days_count(self):
-        output = 0
-        for day_directory in self.data_directories:
-            metadata_path = os.path.join(self.data_path, day_directory, "acolite_output", "metadata.json")
-            if os.path.exists(metadata_path):
-                with open(metadata_path) as f:
-                    metadata = json.load(f)
-                if metadata["valid"] == True:
-                    #print(day_directory)
-                    output += 1
-        print("Valid days:", output)
-        return output
         
 
 class Mask():
