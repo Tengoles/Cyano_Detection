@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import os
 import json
 import cv2
+from tqdm import tqdm
 
 S2A_wavelengths = {"B1": 443, "B2": 492, "B3": 560, "B4": 665, "B5": 704, "B6": 740, "B7": 783, "B8": 833, 
                    "B8A": 865, "B9": 945, "B11": 1373, "B12": 1614, "B13": 2202}
@@ -127,12 +128,13 @@ class DayData():
             return {}
 
 class DayDataGenerator():
-    def __init__(self, start_date, end_date, date_format, data_path, skip_invalid=False):
+    def __init__(self, start_date, end_date, date_format, data_path, skip_invalid=False, tagging=False):
         self.date_format = date_format
         self.start_datetime = datetime.strptime(start_date, date_format)
         self.end_datetime = datetime.strptime(end_date, date_format) 
         self.data_path = data_path
         self.skip_invalid=skip_invalid
+        self.tagging_mode = tagging
         self.data_directories = self._get_data_directories()
         
     def _get_data_directories(self):
@@ -153,6 +155,8 @@ class DayDataGenerator():
                         data_directories_temp.append(directory)
                 else:
                     data_directories_temp.append(directory)
+            elif self.tagging_mode == True:
+                data_directories_temp.append(directory)
                     
         data_directories = data_directories_temp
                 
@@ -178,7 +182,7 @@ class Mask():
         self.height = height
         self.path = mask_path
         self.annotation = self._load_json()
-        self.array = self._load_mask()
+        self.array, self.polygon = self._load_mask()
         self.rgb = self.make_rgb()
         
     def _load_json(self):
@@ -194,13 +198,19 @@ class Mask():
 
         mask_absolute_coords = [[p['x']*self.width, p['y']*self.height] for p in data["valid water"]["relative points"]]
         mask_polygon = Polygon(mask_absolute_coords)
-
+        
+        mask_rectangle = mask_polygon.minimum_rotated_rectangle
+        mask_bounding_coords = list(mask_rectangle.exterior.coords)
+        
+        pbar = tqdm(total=self.height*self.width)
         for i in range(self.height):
-            for j in range(self.width):
+            for j in range(self.width):                
                 if mask_polygon.contains(Point([j, i])):
                     output[i, j] = 255
-
-        return output
+                        
+                pbar.update(1)
+        pbar.close()
+        return output, mask_polygon
     
     def make_rgb(self):
         mask_rgb = np.zeros((self.height, self.width, 3), dtype=np.uint8)
@@ -226,8 +236,28 @@ class Mask():
         pts = pts.reshape((-1,1,2))
         cv2.polylines(img,[pts],True, (0,255,255))
         
-        return img
+        return img                        
     
+    def get_pixel_count(self):
+        pixel_count = 0
+        for i in range(self.height):
+            for j in range(self.width):
+                if self.array[i, j] == 255:
+                    pixel_count += 1
+        return pixel_count
+        
+    def reduce_mask(self, method="skip"):
+        #output = np.zeros_like(self.array)
+        if method == "skip":
+            for i in range(self.height):
+                for j in range(self.width):
+                    if j%2 == 0:
+                        #output[i, j] = 255
+                        self.array[i, j] = 0
+                    if i%2 == 0:
+                        #output[i, j] = 255
+                        self.array[i, j] = 0
+        #return output
 
 if __name__ == "__main__":
     import settings

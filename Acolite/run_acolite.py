@@ -1,4 +1,5 @@
 import os, sys
+import shutil
 sys.path.append("../")
 sys.path.append("acolite")
 import settings
@@ -26,7 +27,8 @@ acolite_settings = {"limit": settings.limit,
 
 for product_path in days_to_process:
     output_directory = os.path.join(os.path.dirname(product_path), "acolite_output")
-    
+    #if os.path.exists(output_directory):
+        #shutil.rmtree(output_directory)
     try:
         os.makedirs(output_directory, exist_ok=False)
     except Exception as e:
