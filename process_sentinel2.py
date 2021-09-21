@@ -8,22 +8,25 @@ import os
 import json
 import cv2
 from tqdm import tqdm
+from s2cloudless import S2PixelCloudDetector, CloudMaskRequest, get_s2_evalscript
 
 S2A_wavelengths = {"B1": 443, "B2": 492, "B3": 560, "B4": 665, "B5": 704, "B6": 740, "B7": 783, "B8": 833, 
-                   "B8A": 865, "B9": 945, "B11": 1373, "B12": 1614, "B13": 2202}
+                   "B8A": 865, "B9": 945, "B10": 1373, "B11": 1614, "B12": 2202}
 
 S2B_wavelengths = {"B1": 442, "B2": 492, "B3": 559, "B4": 665, "B5": 704, "B6": 739, "B7": 780, "B8": 833, 
-                   "B8A": 864, "B9": 943, "B11": 1377, "B12": 1610, "B13": 2186}
+                   "B8A": 864, "B9": 943, "B10": 1377, "B11": 1610, "B12": 2186}
 
 class DayData():
-    def __init__(self, path):
-        self._relevant_bands = ["B2", "B3", "B4", "B5", "B6", "B7"]
+    def __init__(self, path, rhot=False):
+        self._relevant_bands = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B9", "B10", "B11", "B12"]
         #path to directory with acolite output
         self.data_path = path
         # datetime of captured data
         self.date = self._get_date()
         # get relevant bands as dictionary with keys as band name and values as np arrays
         self.bands = self._get_bands_data()
+        if rhot == True:
+            self.bands_rhot = self._get_bands_data(rhot=True)
         # make display-ready rgb array from band data
         self.rgb = self._get_rgb_array()
         # make array with latitude and longitude for every pixel
@@ -38,7 +41,7 @@ class DayData():
             if "MSI" in file_name:
                 return datetime.strptime(file_name[8:27], '%Y_%m_%d_%H_%M_%S')
             
-    def _get_bands_data(self):
+    def _get_bands_data(self, rhot=False):
         output = {}
         for file_name in os.listdir(self.data_path):
             try:
@@ -51,12 +54,19 @@ class DayData():
                 band_name = list(S2A_wavelengths.keys())[list(S2B_wavelengths.values()).index(band_wavelength)]
             else:
                 continue
-            if band_name in self._relevant_bands:
-                tif_path = os.path.join(self.data_path, file_name)
-                ds = gdal.Open(tif_path)
-                band = ds.GetRasterBand(1)
-                arr = band.ReadAsArray()
-                output[band_name] = arr
+            if (band_name in self._relevant_bands):
+                if (rhot == True) and ("rhot" in file_name):
+                    tif_path = os.path.join(self.data_path, file_name)
+                    ds = gdal.Open(tif_path)
+                    band = ds.GetRasterBand(1)
+                    arr = band.ReadAsArray()
+                    output[band_name] = arr
+                elif rhot == False:
+                    tif_path = os.path.join(self.data_path, file_name)
+                    ds = gdal.Open(tif_path)
+                    band = ds.GetRasterBand(1)
+                    arr = band.ReadAsArray()
+                    output[band_name] = arr
         return output
                 
     def _get_rgb_array(self):
@@ -73,6 +83,8 @@ class DayData():
         return rgb_stretched
     
     def _get_lat_lon(self):
+        latitude = np.array([])
+        longitude = np.array([])
         for file_name in os.listdir(self.data_path):
             if file_name.endswith("lat.tif"):
                 tif_path = os.path.join(self.data_path, file_name)
@@ -126,10 +138,26 @@ class DayData():
                 return json.load(f)
         else:
             return {}
+        
+    def compute_cloud_mask(self, threshold=0.4, average_over=4, dilation_size=2):
+        cloud_detector = S2PixelCloudDetector(
+                                        threshold=threshold,
+                                        average_over=average_over,
+                                        dilation_size=dilation_size,
+                                        all_bands=False
+                                    )
+        bands_for_cloud_detector = ["B1", "B2", "B4", "B5", "B8", "B8A", "B9", "B10", "B11", "B12"]
+        cloud_detector_input = np.zeros((self.rgb.shape[0], self.rgb.shape[1], len(bands_for_cloud_detector)))
+        for i, band in enumerate(bands_for_cloud_detector):
+            cloud_detector_input[:, :, i] = self.bands_rhot[band]
+        
+        return cloud_detector.get_cloud_masks(cloud_detector_input)
+        
 
 class DayDataGenerator():
-    def __init__(self, start_date, end_date, date_format, data_path, skip_invalid=False, tagging=False):
+    def __init__(self, start_date, end_date, date_format, data_path, skip_invalid=False, tagging=False, cloud_level_th=0):
         self.date_format = date_format
+        self.cloud_level_th = cloud_level_th
         self.start_datetime = datetime.strptime(start_date, date_format)
         self.end_datetime = datetime.strptime(end_date, date_format) 
         self.data_path = data_path
@@ -151,7 +179,7 @@ class DayDataGenerator():
                 with open(metadata_path) as f:
                     metadata =  json.load(f)
                 if self.skip_invalid:
-                    if metadata["valid"] == True:
+                    if int(metadata["cloud level"]) <= self.cloud_level_th:
                         data_directories_temp.append(directory)
                 else:
                     data_directories_temp.append(directory)
