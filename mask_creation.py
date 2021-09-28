@@ -103,7 +103,7 @@ if __name__ == '__main__':
     args = get_parser().parse_args()
 
     sample_data_path = Path(args.sample_data_path)
-    data = process_sentinel2.day_data(sample_data_path)
+    data = process_sentinel2.DayData(sample_data_path)
 
     output_path = args.out_json
 
