@@ -205,39 +205,39 @@ class DayDataGenerator():
         
 
 class Mask():
-    def __init__(self, mask_path, width, height):
+    def __init__(self, masks_dir, width, height):
         self.width = width
         self.height = height
-        self.path = mask_path
-        self.annotation = self._load_json()
-        self.array, self.polygon = self._load_mask()
+        self.dir = masks_dir
+        self.array, self.polygon = self._load_masks()
         self.rgb = self.make_rgb()
         
     def _load_json(self):
         with open(self.path) as f:
             return json.load(f)
             
-    def _load_mask(self):
+    def _load_masks(self):
         #output = np.zeros((self.width, self.height), dtype=np.uint8)
         output = np.zeros((self.height, self.width), dtype=np.uint8)
+        masks_jsons = [os.path.join(self.dir, fn) for fn in os.listdir(self.dir) if fn.endswith(".json")]
+        for mask_json in masks_jsons:
+            with open(mask_json) as f:
+                data = json.load(f)
 
-        with open(self.path) as f:
-            data = json.load(f)
+            mask_absolute_coords = [[p['x']*self.width, p['y']*self.height] for p in data["valid water"]["relative points"]]
+            mask_polygon = Polygon(mask_absolute_coords)
 
-        mask_absolute_coords = [[p['x']*self.width, p['y']*self.height] for p in data["valid water"]["relative points"]]
-        mask_polygon = Polygon(mask_absolute_coords)
-        
-        mask_rectangle = mask_polygon.minimum_rotated_rectangle
-        mask_bounding_coords = list(mask_rectangle.exterior.coords)
-        
-        pbar = tqdm(total=self.height*self.width)
-        for i in range(self.height):
-            for j in range(self.width):                
-                if mask_polygon.contains(Point([j, i])):
-                    output[i, j] = 255
-                        
-                pbar.update(1)
-        pbar.close()
+            mask_rectangle = mask_polygon.minimum_rotated_rectangle
+            mask_bounding_coords = list(mask_rectangle.exterior.coords)
+
+            pbar = tqdm(total=self.height*self.width)
+            for i in range(self.height):
+                for j in range(self.width):                
+                    if mask_polygon.contains(Point([j, i])):
+                        output[i, j] = 255
+
+                    pbar.update(1)
+            pbar.close()
         return output, mask_polygon
     
     def make_rgb(self):
