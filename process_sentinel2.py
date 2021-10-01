@@ -41,9 +41,21 @@ class DayData():
             if "MSI" in file_name:
                 return datetime.strptime(file_name[8:27], '%Y_%m_%d_%H_%M_%S')
             
+    def _get_array_from_tif(self, tif_path):
+        ds = gdal.Open(tif_path)
+        band = ds.GetRasterBand(1)
+        arr = band.ReadAsArray()
+        return arr
+    
     def _get_bands_data(self, rhot=False):
         output = {}
-        for file_name in os.listdir(self.data_path):
+        rhos_tiffs = [f for f in os.listdir(self.data_path) if ("rhos" in f) and f.endswith(".tif")]
+        rhot_tiffs = [f for f in os.listdir(self.data_path) if ("rhot" in f) and f.endswith(".tif")]
+        if rhot:
+            list_of_tiffs = rhot_tiffs
+        else:
+            list_of_tiffs = rhos_tiffs
+        for file_name in list_of_tiffs:
             try:
                 band_wavelength = int(file_name.split("_")[-1].split(".")[0])
             except ValueError:
@@ -55,18 +67,9 @@ class DayData():
             else:
                 continue
             if (band_name in self._relevant_bands):
-                if (rhot == True) and ("rhot" in file_name):
-                    tif_path = os.path.join(self.data_path, file_name)
-                    ds = gdal.Open(tif_path)
-                    band = ds.GetRasterBand(1)
-                    arr = band.ReadAsArray()
-                    output[band_name] = arr
-                elif rhot == False:
-                    tif_path = os.path.join(self.data_path, file_name)
-                    ds = gdal.Open(tif_path)
-                    band = ds.GetRasterBand(1)
-                    arr = band.ReadAsArray()
-                    output[band_name] = arr
+                tif_path = os.path.join(self.data_path, file_name)
+                arr = self._get_array_from_tif(tif_path)
+                output[band_name] = arr
         return output
                 
     def _get_rgb_array(self):
@@ -116,17 +119,23 @@ class DayData():
         return dominant
     
     def get_pos_index(self, lat, lon):
-        dist_array = np.zeros(self.lat_lon.shape[:2])
+        dist_array = np.zeros(self.rgb.shape[:2])
         for i, row in enumerate(dist_array):
             for j, dist in enumerate(row):
-                dist_array[i, j] = np.linalg.norm(self.lat_lon[i,j] - np.array([lat, lon], dtype=np.float32))
+                lat_lon = np.array([self.latitude[i,j], self.longitude[i,j]],dtype=np.float32)
+                dist_array[i, j] = np.linalg.norm( lat_lon - np.array([lat, lon], dtype=np.float32))
         result = np.where(dist_array == np.amin(dist_array))
         return list(zip(result[0], result[1]))[0]
     
-    def paint_coords(self, coords, color):
+    def paint_coords(self, coords, color, radius=3):
+        pbar = tqdm(total=len(coords))
         for coord in coords:
             index = self.get_pos_index(coord[0], coord[1])
-            self.rgb[index[0], index[1]] = color
+            center_coordinates = (index[1], index[0])
+            self.rgb = cv2.circle(self.rgb, center_coordinates, radius, color, -1)
+            pbar.update(1)
+            #self.rgb[index[0], index[1]] = color
+        pbar.close()
     
     def get_NDCI(self):
         ndci = (self.bands["B5"] - self.bands["B4"])/(self.bands["B5"] + self.bands["B4"])
