@@ -71,27 +71,23 @@ COLORS = {
 #             ]
 preloaded = []
 
-def add_point(points, width, height, coords, event, x, y, flags, param):
+def add_point(points, event, x, y, flags, param):
     if event == cv2.EVENT_LBUTTONDOWN:
         new_point = {
-            'x': x / width,
-            'y': y / height
-        }
-
-        new_coord = {
             'x': x,
             'y': y
         }
-        print(new_coord)
         points.append(new_point)
-        coords.append(new_coord)
 
 def draw_areas(img, defined_areas):
     height, width , _ = img.shape
-    for defined_area_name, defined_area_points in defined_areas.items():
-        pts = np.array([[p['x']*width, p['y']*height] for p in defined_area_points["relative points"]], np.int32)
-        pts = pts.reshape((-1,1,2))
-        cv2.polylines(img,[pts],True, COLORS[defined_area_name])
+    #for defined_area_name, defined_area_points in defined_areas.items():
+    if defined_areas == {}:
+        return
+    defined_area_points = defined_areas["valid water"]
+    pts = np.array([[p['x'], p['y']] for p in defined_area_points["points"]], np.int32)
+    pts = pts.reshape((-1,1,2))
+    cv2.polylines(img,[pts],True, COLORS["valid water"])
     offset_y = 0
     for area_name, area_color in COLORS.items():
         draw_text(f"{area_name}", img, img.shape[1]- 300, 30 + offset_y, area_color)
@@ -109,50 +105,40 @@ def coords_to_xy(p_c, day_data):
     #           'x': x,
     #           'y': y
     #         }
-    output_coords = []
-    # list of {
-    #           'x': x / width,
-    #           'y': y / height
-    #         }
     output_points = []
-    h = day_data.rgb.shape[0]
-    w = day_data.rgb.shape[1]
     pbar = tqdm(total=len(p_c))
     for coord in p_c:
         y, x = day_data.get_pos_index(coord[0], coord[1])
-        output_coords.append({'x': x, 'y': y})
-        output_points.append({'x': x/w, 'y': y/h})
+        output_points.append({'x': int(x), 'y': int(y)})
         pbar.update(1)
     pbar.close()
-    return output_points, output_coords
+    return output_points
     
 
-def set_points(img, defined_areas, area_name, preloaded_points=[], preloaded_coords=[]):
+def set_points(img, defined_areas, area_name, preloaded_points=[]):
     # preloaded_coords must be list of
     clone = img.copy()
     height, width , _ = img.shape
-    if preloaded_points == [] and preloaded_coords == []:
+    if preloaded_points == []:
         points = []
-        coords = []
     else:
         points = preloaded_points
-        coords = preloaded_coords
 
     cv2.namedWindow("area_definition", cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback("area_definition", partial(add_point, points, width, height, coords))
+    cv2.setMouseCallback("area_definition", partial(add_point, points))
     abort = False
 
     while True:
         #show areas already defined
         draw_areas(img, defined_areas)
         for defined_area_name, defined_area_points in defined_areas.items():
-            abs_pts = np.array([[p['x']*width, p['y']*height] for p in defined_area_points["relative points"]], np.int32)
+            abs_pts = np.array([[p['x'], p['y']] for p in defined_area_points["points"]], np.int32)
             abs_pts = abs_pts.reshape((-1,1,2))
             cv2.polylines(img,[abs_pts],True, COLORS[defined_area_name])
 
         # show points of area being defined
         for p in points:
-            abs_p = tuple(np.array([p['x']*width, p['y']*height]).astype(np.int32))
+            abs_p = tuple(np.array([p['x'], p['y']], np.int32))
             cv2.circle(img, abs_p, 2, COLORS[area_name], -1)
 
         draw_text(f"Defining {area_name}", img, 100, 20)
@@ -173,7 +159,7 @@ def set_points(img, defined_areas, area_name, preloaded_points=[], preloaded_coo
             abort = True
             break
     if not abort:
-        return points, coords
+        return points
     if abort:
         cv2.destroyAllWindows()
         raise Exception("Quited Program")
@@ -194,7 +180,7 @@ if __name__ == '__main__':
     data = process_sentinel2.DayData(sample_data_path)
     
     if preloaded != []:
-        preloaded_points, preloaded_coords = coords_to_xy(preloaded, data)
+        preloaded_points = coords_to_xy(preloaded, data)
     else:
         preloaded_coords = []
         preloaded_points = []
@@ -204,11 +190,13 @@ if __name__ == '__main__':
     # if area_definition file doesn't exist, define areas
     if not Path(output_path).exists():
         defined_areas = {}
-        points_xy, coords = set_points(np.copy(data.rgb), defined_areas, "valid water", preloaded_points, preloaded_coords)
-        defined_areas["valid water"] = {"relative points":points_xy}
-        defined_areas["valid water"]["lon/lat"] = [{"longitude": float(data.longitude[coord["y"], coord["x"]]), 
-                                                    "latitude": float(data.latitude[coord["y"], coord["x"]])} 
-                                                    for coord in coords]
+        points_xy = set_points(np.copy(data.rgb), defined_areas, "valid water", preloaded_points)
+        defined_areas["valid water"] = {"points":points_xy}
+        defined_areas["valid water"]["lon/lat"] = [{"longitude": float(data.longitude[point["y"], point["x"]]), 
+                                                    "latitude": float(data.latitude[point["y"], point["x"]])} 
+                                                    for point in points_xy]
+        defined_areas["height"] = data.rgb.shape[0]
+        defined_areas["width"] = data.rgb.shape[1]
     else:
         with open(output_path) as json_file:
             defined_areas = json.load(json_file)
