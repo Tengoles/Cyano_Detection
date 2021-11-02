@@ -214,30 +214,24 @@ class DayDataGenerator():
         
 
 class Mask():
-    def __init__(self, masks_dir, width, height):
-        self.width = width
-        self.height = height
+    def __init__(self, masks_dir, resize_ratio=1):
+        self.resize_ratio = resize_ratio
         self.dir = masks_dir
         self.array, self.polygon = self._load_masks()
         self.rgb = self.make_rgb()
         
-    def _load_json(self):
-        with open(self.path) as f:
+    def _load_json(self, path):
+        with open(path) as f:
             return json.load(f)
             
     def _load_masks(self):
-        #output = np.zeros((self.width, self.height), dtype=np.uint8)
+        masks = [self._load_json(os.path.join(self.dir, fn)) for fn in os.listdir(self.dir) if fn.endswith(".json")]
+        self.height = masks[0]["height"]*self.resize_ratio
+        self.width = masks[0]["width"]*self.resize_ratio
         output = np.zeros((self.height, self.width), dtype=np.uint8)
-        masks_jsons = [os.path.join(self.dir, fn) for fn in os.listdir(self.dir) if fn.endswith(".json")]
-        for mask_json in masks_jsons:
-            with open(mask_json) as f:
-                data = json.load(f)
-
-            mask_absolute_coords = [[p['x']*self.width, p['y']*self.height] for p in data["valid water"]["relative points"]]
+        for mask in masks:
+            mask_absolute_coords = [[p['x'], p['y']] for p in mask["valid water"]["points"]]
             mask_polygon = Polygon(mask_absolute_coords)
-
-            mask_rectangle = mask_polygon.minimum_rotated_rectangle
-            mask_bounding_coords = list(mask_rectangle.exterior.coords)
 
             pbar = tqdm(total=self.height*self.width)
             for i in range(self.height):
