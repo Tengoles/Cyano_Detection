@@ -230,17 +230,19 @@ class Mask():
         self.width = masks[0]["width"]*self.resize_ratio
         output = np.zeros((self.height, self.width), dtype=np.uint8)
         for mask in masks:
-            mask_absolute_coords = [[p['x'], p['y']] for p in mask["valid water"]["points"]]
+            mask_absolute_coords = np.array([[p['x'], p['y']] for p in mask["valid water"]["points"]])
             mask_polygon = Polygon(mask_absolute_coords)
+            mask_absolute_coords = mask_absolute_coords.reshape((-1,1,2))
+            cv2.fillPoly(output, [mask_absolute_coords], 1)            
+            
+#             pbar = tqdm(total=self.height*self.width)
+#             for i in range(self.height):
+#                 for j in range(self.width):                
+#                     if mask_polygon.contains(Point([j, i])):
+#                         output[i, j] = 255
 
-            pbar = tqdm(total=self.height*self.width)
-            for i in range(self.height):
-                for j in range(self.width):                
-                    if mask_polygon.contains(Point([j, i])):
-                        output[i, j] = 255
-
-                    pbar.update(1)
-            pbar.close()
+#                     pbar.update(1)
+#             pbar.close()
         return output, mask_polygon
     
     def make_rgb(self):
@@ -249,32 +251,23 @@ class Mask():
         mask_rgb[:, :, 1] = self.array
         mask_rgb[:, :, 2] = self.array
         
-        return mask_rgb
+        return mask_rgb*255
     
     def display_mask_img(self, img):
-        output = np.zeros_like(img)
-        for i, row in enumerate(img):
-            for j, rgb in enumerate(row):
-                if self.array[i,j] == 255:
-                    output[i,j,:] = np.array([255, 255, 255])
-                else:
-                    output[i,j,:] = img[i, j, :]
-
+        output = np.copy(img)
+        output[self.array == 1] = [255, 255, 255]
         return output
     
     def display_mask_contour(self, img):
         pts = np.array([[p['x']*self.width, p['y']*self.height] for p in self.annotation["valid water"]["relative points"]], np.int32)
         pts = pts.reshape((-1,1,2))
-        cv2.polylines(img,[pts],True, (0,255,255))
-        
-        return img                        
+        cv2.polylines(img,[pts],True, (0,255,255))        
+        return img
     
     def get_pixel_count(self):
-        pixel_count = 0
-        for i in range(self.height):
-            for j in range(self.width):
-                if self.array[i, j] == 255:
-                    pixel_count += 1
+        unique, counts = np.unique(self.array, return_counts=True)
+        unique_counts = dict(zip(unique, counts))
+        pixel_count = unique_counts[True]
         return pixel_count
         
     def reduce_mask(self, method="skip"):
