@@ -119,12 +119,10 @@ class DayData():
         return dominant
     
     def get_pos_index(self, lat, lon):
-        dist_array = np.zeros(self.rgb.shape[:2])
-        for i, row in enumerate(dist_array):
-            for j, dist in enumerate(row):
-                lat_lon = np.array([self.latitude[i,j], self.longitude[i,j]],dtype=np.float32)
-                dist_array[i, j] = np.linalg.norm( lat_lon - np.array([lat, lon], dtype=np.float32))
-        result = np.where(dist_array == np.amin(dist_array))
+        lat_distances = np.abs(self.latitude - lat)
+        lon_distances = np.abs(self.longitude - lon)
+        all_distances = np.sqrt(lat_distances + lon_distances)
+        result = np.where(all_distances == np.amin(all_distances))
         return list(zip(result[0], result[1]))[0]
     
     def paint_coords(self, coords, color, radius=3):
