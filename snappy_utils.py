@@ -1,8 +1,7 @@
 import sys
 import os
 import settings
-import snappy
-from snappy import ProductIO, WKTReader, HashMap, GPF
+from snappy import ProductIO, WKTReader, HashMap, GPF, jpy
 import numpy as np
 
 def read_product(product_path):
@@ -11,8 +10,8 @@ def read_product(product_path):
     return product
 
 def make_subset(product, wkt):
-    print("Making subset")
-    SubsetOp = snappy.jpy.get_type('org.esa.snap.core.gpf.common.SubsetOp')
+    #print("Making subset")
+    SubsetOp = jpy.get_type('org.esa.snap.core.gpf.common.SubsetOp')
     geom = WKTReader().read(wkt)
     op = SubsetOp()
     op.setSourceProduct(product)
@@ -58,13 +57,13 @@ def write_product(product, path, p_type):
     print("Writing %s to %s" % (p_type, path))
     ProductIO.writeProduct(product, path, p_type)
 
-def get_bands(product, bands):
+def get_bands(product, bands, data_type=np.float32):
     width = product.getSceneRasterWidth()
     height = product.getSceneRasterHeight()
     output_dict = {}
     for b in bands:
         band_product = product.getBand(b)
-        band_array = np.zeros(width*height, dtype=np.float32)
+        band_array = np.zeros(width*height, dtype=data_type)
         band_product.readPixels(0, 0, width, height, band_array)
         band_array.shape = (height, width)
         output_dict[b] = band_array

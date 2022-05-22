@@ -29,12 +29,12 @@ for product_path in days_to_process:
     output_directory = os.path.join(os.path.dirname(product_path), "acolite_output")
     #if os.path.exists(output_directory):
         #shutil.rmtree(output_directory)
-#     try:
-#         os.makedirs(output_directory, exist_ok=False)
-#     except Exception as e:
-#         print("Exception when creating output directory:", str(e), "\ncontinuing to next day.")
-#         print("-----------------------------------------------")
-#         continue
+    try:
+        os.makedirs(output_directory, exist_ok=False)
+    except Exception as e:
+        print("Exception when creating output directory:", str(e), "\ncontinuing to next day.")
+        print("-----------------------------------------------")
+        continue
     
     acolite_settings["inputfile"] = product_path
     acolite_settings["output"] = output_directory

@@ -4,6 +4,7 @@ import numpy as np
 from shapely.geometry import Polygon, Point
 import utils
 import matplotlib.pyplot as plt
+import pytz
 import os
 import json
 import cv2
@@ -17,11 +18,12 @@ S2B_wavelengths = {"B1": 442, "B2": 492, "B3": 559, "B4": 665, "B5": 704, "B6": 
                    "B8A": 864, "B9": 943, "B10": 1377, "B11": 1610, "B12": 2186}
 
 class DayData():
-    def __init__(self, path, rhot=False):
+    def __init__(self, path, rhot=False, timezone_location="America/Montevideo"):
         self._relevant_bands = ["B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B8A", "B9", "B10", "B11", "B12"]
         #path to directory with acolite output
         self.data_path = path
         # datetime of captured data
+        self.tz = pytz.timezone(timezone_location)
         self.date = self._get_date()
         # get relevant bands as dictionary with keys as band name and values as np arrays
         self.bands = self._get_bands_data()
@@ -39,7 +41,7 @@ class DayData():
     def _get_date(self):
         for file_name in os.listdir(self.data_path):
             if "MSI" in file_name:
-                return datetime.strptime(file_name[8:27], '%Y_%m_%d_%H_%M_%S')
+                return self.tz.localize(datetime.strptime(file_name[8:27], '%Y_%m_%d_%H_%M_%S'))
             
     def _get_array_from_tif(self, tif_path):
         ds = gdal.Open(tif_path)
@@ -190,7 +192,7 @@ class DayDataGenerator():
                         data_directories_temp.append(directory)
                 else:
                     data_directories_temp.append(directory)
-            elif self.tagging_mode == True:
+            elif self.tagging_mode:
                 data_directories_temp.append(directory)
                     
         data_directories = data_directories_temp
@@ -215,7 +217,7 @@ class Mask():
     def __init__(self, masks_dir, resize_ratio=1):
         self.resize_ratio = resize_ratio
         self.dir = masks_dir
-        self.array, self.polygon = self._load_masks()
+        self.array, self.polygon, self.height, self.width, self.annotations = self._load_masks()
         self.rgb = self.make_rgb()
         
     def _load_json(self, path):
@@ -224,24 +226,15 @@ class Mask():
             
     def _load_masks(self):
         masks = [self._load_json(os.path.join(self.dir, fn)) for fn in os.listdir(self.dir) if fn.endswith(".json")]
-        self.height = masks[0]["height"]*self.resize_ratio
-        self.width = masks[0]["width"]*self.resize_ratio
-        output = np.zeros((self.height, self.width), dtype=np.uint8)
+        height = masks[0]["height"]*self.resize_ratio
+        width = masks[0]["width"]*self.resize_ratio
+        output = np.zeros((height, width), dtype=np.uint8)
         for mask in masks:
             mask_absolute_coords = np.array([[p['x'], p['y']] for p in mask["valid water"]["points"]])
             mask_polygon = Polygon(mask_absolute_coords)
             mask_absolute_coords = mask_absolute_coords.reshape((-1,1,2))
-            cv2.fillPoly(output, [mask_absolute_coords], 1)            
-            
-#             pbar = tqdm(total=self.height*self.width)
-#             for i in range(self.height):
-#                 for j in range(self.width):                
-#                     if mask_polygon.contains(Point([j, i])):
-#                         output[i, j] = 255
-
-#                     pbar.update(1)
-#             pbar.close()
-        return output, mask_polygon
+            cv2.fillPoly(output, [mask_absolute_coords], 1)
+        return output, mask_polygon, height, width, masks
     
     def make_rgb(self):
         mask_rgb = np.zeros((self.height, self.width, 3), dtype=np.uint8)
@@ -257,9 +250,10 @@ class Mask():
         return output
     
     def display_mask_contour(self, img):
-        pts = np.array([[p['x']*self.width, p['y']*self.height] for p in self.annotation["valid water"]["relative points"]], np.int32)
-        pts = pts.reshape((-1,1,2))
-        cv2.polylines(img,[pts],True, (0,255,255))        
+        for mask in self.annotations:
+            pts = np.array([[p['x'], p['y']] for p in mask["valid water"]["points"]], np.int32)
+            pts = pts.reshape((-1,1,2))
+            cv2.polylines(img,[pts],True, (0,255,255))        
         return img
     
     def get_pixel_count(self):
