@@ -1,0 +1,3 @@
+[submodule "src/acolite"]
+	path = src/acolite
+	url = https://github.com/acolite/acolite_ls2
