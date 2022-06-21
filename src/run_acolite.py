@@ -8,7 +8,7 @@ if __name__ == "__main__":
     data_path = settings.raw_data_path
     # Get paths of sentinel products to process
     days_to_process = []
-    for day_directory in os.listdir(data_path)[100:101]:
+    for day_directory in os.listdir(data_path):
         day_directory_path = os.path.join(data_path, day_directory)
         day_diretory_files = os.listdir(day_directory_path)
         for file in day_diretory_files:
