@@ -1,5 +1,6 @@
 raw_data_path = "/home/ubuntu/cianobacterias/data/raw"
 processed_data_path = "/home/ubuntu/cianobacterias/data/processed"
+final_data_path = "/home/ubuntu/cianobacterias/data/final"
 water_mask_path = "/home/ubuntu/cianobacterias/data/misc/water_masks/selected/"
 # (longitude, latitude)
 footprint = "POLYGON((-55.16629529644229 -34.7494869239046,-55.02038312603214 -34.7494869239046,-55.02038312603214 -34.868725532230165,-55.16629529644229 -34.868725532230165,-55.16629529644229 -34.7494869239046))"
