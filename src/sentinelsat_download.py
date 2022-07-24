@@ -73,8 +73,7 @@ class Sentinel3Products:
                 
 class SentinelsatProducts:
     def __init__(self, date_start, date_finish, footprint,
-                 platformname="Sentinel-3", instrument="SLSTR", 
-                 level="L2", p_type="LST"):
+                 platformname, instrument, level=None, p_type=None):
         self.date_start = date_start
         self.date_finish = date_finish
         self.platform = platformname
@@ -94,7 +93,12 @@ class SentinelsatProducts:
 
     def query_products(self):
         # search by polygon, time, and Hub query keywords
-        products = self.api.query(self.wkt_footprint, area_relation='Contains',
+        if self.platform == "Sentinel-3" and self.instrument == "OLCI":
+            products = self.api.query(self.wkt_footprint, area_relation='Contains',
+                            date=(self.date_start, self.date_finish), platformname=self.platform,
+                            instrumentname='Ocean Land Colour Instrument', productlevel=self.level, producttype="OL_1_EFR___")
+        else:
+             products = self.api.query(self.wkt_footprint, area_relation='Contains',
                             date=(self.date_start, self.date_finish), platformname=self.platform,
                             producttype=self.p_type)
         return products
@@ -155,7 +159,7 @@ class SentinelsatProducts:
             del self.products[key]
 
     def download_products(self, data_path, delete_zip=True, lta_request_delay=600):
-        total_products = len(self.products.keys())        
+        total_products = len(self.products.keys()) - 1        
         for i, key in enumerate(self.products):
             print("-------------------------")
             print(i, "/", total_products)
@@ -231,16 +235,23 @@ def convert_size_string(size_string):
     
                 
 if __name__=="__main__":
-    datos = Sentinel3Producuts(date(2019, 12, 21), date(2019, 12, 27))
-    datos.filter_products(instrument="OLCI", level="L1", p_type= "FR", timeliness="Non Time Critical")
-    datos.download_products()
+    date1 = date(2022, 5, 21)
+    date2 = date(2022, 5, 23)
+    
+    # Sentinel-2 MSI Level-1C
+    # products = SentinelsatProducts(date1, date2, footprint=settings.footprint, 
+    #                               platformname="Sentinel-2", instrument="MSI", p_type='S2MSI1C')
+    
+    # Sentinel-3 SLSTR level-2
+    # products = SentinelsatProducts(date1, date2, footprint=settings.footprint, 
+    #                                 platformname="Sentinel-3", instrument="SLSTR", 
+    #                                 level="L2", p_type="SL_2_LST___")
+    
+    # Sentinel-3 OLCI level-1
+    products = SentinelsatProducts(date1, date2, footprint=settings.footprint,
+                                platformname="Sentinel-3", instrument="OLCI", level="L1")
+    
+    for p_key, p in products.products.items():
+        print(p['summary'])
 
-# GeoJSON FeatureCollection containing footprints and metadata of the scenes
-#api.to_geojson(products)
-
-# GeoPandas GeoDataFrame with the metadata of the scenes and the footprints as geometries
-#api.to_geodataframe(products)
-
-# Get basic information about the product: its title, file size, MD5 sum, date, footprint and
-# its download url
-#api.get_product_odata(<product_id>)
+    products.download_products(settings.raw_data_path)
