@@ -91,5 +91,3 @@ if __name__=="__main__":
     #load tif to numpy array
     mph_bands = mph_subset.getBandNames()
     arr = get_bands(mph_subset, mph_bands)
-
-    #Verificar que correr Rayleigh y MPH desde aca sea lo mismo que desde SNAP y que este todo piola con guardar el tif y cargarlo

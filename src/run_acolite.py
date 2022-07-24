@@ -25,7 +25,7 @@ if __name__ == "__main__":
                        "l2w_export_geotiff": settings.l2w_export_geotiff,
                        "export_geotiff_coordinates": settings.export_geotiff_coordinates}
     for product_path in days_to_process:
-        output_directory = os.path.join(settings.processed_data_path, os.path.dirname(product_path))
+        output_directory = os.path.join(settings.processed_data_path, os.path.basename(os.path.dirname(product_path)), "MSI")
         print(output_directory)
         #if os.path.exists(output_directory):
             #shutil.rmtree(output_directory)
