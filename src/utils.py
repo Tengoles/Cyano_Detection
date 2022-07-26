@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
-#import snappy_utils
-#from astropy.nddata import bitmask
+import snappy_utils
+from astropy.nddata import bitmask
 
 def bands_to_array(bands_dict):
     data_shape = bands_dict[list(bands_dict.keys())[0]].shape
