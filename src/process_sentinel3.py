@@ -44,8 +44,8 @@ class OLCIdata():
         self.laguna_mask = self._get_laguna_mask()
         
         # path to json with metadata
-        data_index = [int(s) for s in os.path.basename(foo) if s.isdigit()][0]
-        self.metadata_path = os.path.join(os.path.dirname(self.product_path), "metadata.json")
+        self.metadata_path = os.path.join(os.path.dirname(self.product_path), 
+                                          os.path.basename(self.product_path).split(".")[0] + "_metadata.json")
         # load metadata of day
         self.metadata = self._get_metadata()
     
@@ -151,29 +151,33 @@ class OLCIdataGenerator():
         
         data_directories_temp = []
         for i, directory in enumerate(data_directories):
-            metadata_path = os.path.join(self.data_path, directory, "OLCI", "metadata.json")
-            # days without metadata are ignored
-            if os.path.exists(metadata_path):
-                with open(metadata_path) as f:
-                    metadata =  json.load(f)
-                if self.skip_invalid:
-                    if int(metadata["cloud level"]) <= self.cloud_level_th:
+            
+            day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/*.dim")
+            
+            for d in day_data_paths:
+                metadata_path = os.path.join(os.path.dirname(d), os.path.basename(d).split(".")[0] + "_metadata.json")
+                # days without metadata are ignored
+                if os.path.exists(metadata_path):
+                    with open(metadata_path) as f:
+                        metadata = json.load(f)
+                    if self.skip_invalid:
+                        if int(metadata["cloud level"]) <= self.cloud_level_th:
+                            data_directories_temp.append(directory)
+                    else:
                         data_directories_temp.append(directory)
-                else:
+                elif self.tagging_mode:
                     data_directories_temp.append(directory)
-            elif self.tagging_mode:
-                data_directories_temp.append(directory)
                     
-        data_directories = data_directories_temp
+        data_directories = sorted(list(set(data_directories_temp)))
                 
         return data_directories
     
     def __iter__(self):
         for directory in self.data_directories:                
             try:
-                day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/subselection_*.dim")
+                day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/*.dim")
                 for d in day_data_paths:
-                    instance = OLCIdata(day_data_path, self.mask_coordinates)
+                    instance = OLCIdata(d, self.mask_coordinates)
                     yield instance
             except Exception as e:
                 print("Error in %s: %s" % (directory, str(e)))
