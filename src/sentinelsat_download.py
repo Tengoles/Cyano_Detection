@@ -167,14 +167,14 @@ class SentinelsatProducts:
             file_name = self.products[key]["filename"]
             file_date = self.products[key]["summary"][:16].split("Date: ")[1]
             
-            download_path = os.path.join(data_path, file_date)
+            download_directory = os.path.join(data_path, file_date)
+            download_path = os.path.join(download_directory, file_name)
             print(file_date)
-            if not os.path.exists(download_path):
+            if not os.path.exists(download_directory):
                 os.makedirs(download_path)
-            
-            # if it was downloaded before or is offline it won't download
-            if file_name in os.listdir(download_path) or key in self.downloaded_prods:
-                print("Data from", file_date, "already downloaded")
+            if os.path.exists(download_path):
+                # if it was downloaded before it won't download
+                print(f"{download_path} already downloaded")
                 self.downloaded_prods[key] = self.products[key]
                 continue
             
@@ -206,11 +206,11 @@ class SentinelsatProducts:
                         self.retrieval_scheduled[key] = self.products[key]
                 continue
             try:
-                download_info = self.api.download(key, directory_path=download_path)
+                download_info = self.api.download(key, directory_path=download_directory)
                 zip_path = download_info["path"]
                 time.sleep(3)
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(download_path)
+                    zip_ref.extractall(download_directory)
                 self.downloaded_prods[key] = self.products[key]
             except Exception as e:
                 print("RAISED EXCEPTION:", str(e))

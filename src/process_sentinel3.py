@@ -1,4 +1,5 @@
 import sys
+import glob
 from shapely.geometry import Polygon, Point
 import os
 import json
@@ -19,9 +20,9 @@ class OLCIdata():
         self._product = snappy_utils.read_product(self.product_path)
         
         # product name from metadata
-        pName = str(self._product.getMetadataRoot().getElement('history').getElement('SubsetInfo').getAttribute('SourceProduct.name').getData())
+        self.pName = str(self._product.getMetadataRoot().getElement('history').getElement('SubsetInfo').getAttribute('SourceProduct.name').getData())
         # datetime of captured data
-        self.date = datetime.strptime(pName.split("____")[1][0:15], '%Y%m%dT%H%M%S')
+        self.date = datetime.strptime(self.pName.split("____")[1][0:15], '%Y%m%dT%H%M%S')
         
         self.quality_flags = snappy_utils.get_bands(self._product, ["quality_flags"])["quality_flags"]
         
@@ -43,6 +44,7 @@ class OLCIdata():
         self.laguna_mask = self._get_laguna_mask()
         
         # path to json with metadata
+        data_index = [int(s) for s in os.path.basename(foo) if s.isdigit()][0]
         self.metadata_path = os.path.join(os.path.dirname(self.product_path), "metadata.json")
         # load metadata of day
         self.metadata = self._get_metadata()
@@ -169,9 +171,10 @@ class OLCIdataGenerator():
     def __iter__(self):
         for directory in self.data_directories:                
             try:
-                day_data_path = os.path.join(self.data_path, directory, "OLCI", "subselection.dim")
-                instance = OLCIdata(day_data_path, self.mask_coordinates)
-                yield instance
+                day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/subselection_*.dim")
+                for d in day_data_paths:
+                    instance = OLCIdata(day_data_path, self.mask_coordinates)
+                    yield instance
             except Exception as e:
                 print("Error in %s: %s" % (directory, str(e)))
                 continue
