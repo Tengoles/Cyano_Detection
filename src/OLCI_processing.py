@@ -31,12 +31,15 @@ if __name__ == "__main__":
         print(f"{tif_output_path} already created")
         sys.exit()
     
-    
-    output_directory = os.path.dirname(beam_dimap_output_path)
-    os.makedirs(output_directory, exist_ok=True)
+    try:
+        output_directory = os.path.dirname(beam_dimap_output_path)
+        os.makedirs(output_directory, exist_ok=True)
 
-    product = snappy_utils.read_product(input_path)
-    subset = snappy_utils.make_subset(product, settings.footprint)
+        product = snappy_utils.read_product(input_path)
+        subset = snappy_utils.make_subset(product, settings.footprint)
 
-    snappy_utils.write_product(subset, beam_dimap_output_path, "BEAM-DIMAP")
-    snappy_utils.write_product(subset, tif_output_path, "GeoTiff")
+        snappy_utils.write_product(subset, beam_dimap_output_path, "BEAM-DIMAP")
+        snappy_utils.write_product(subset, tif_output_path, "GeoTiff")
+    except Exception as e:
+        print(f"Exception in {input_path}")
+        print(e)

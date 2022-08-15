@@ -7,6 +7,8 @@ import time
 from datetime import date
 import settings
 import zipfile
+from collections import OrderedDict
+from datetime import timedelta
 
 SENTINEL_API_USER = settings.sentinel_api_user
 SENTINEL_API_KEY = settings.sentinel_api_key
@@ -95,7 +97,7 @@ class SentinelsatProducts:
         # search by polygon, time, and Hub query keywords
         if self.platform == "Sentinel-3" and self.instrument == "OLCI":
             products = self.api.query(self.wkt_footprint, area_relation='Contains',
-                            date=(self.date_start, self.date_finish), platformname=self.platform,
+                            date=(self.date_start - timedelta(days=1), self.date_finish + timedelta(days=1)), platformname=self.platform,
                             instrumentname='Ocean Land Colour Instrument', productlevel=self.level, producttype="OL_1_EFR___")
         else:
              products = self.api.query(self.wkt_footprint, area_relation='Contains',
@@ -117,7 +119,12 @@ class SentinelsatProducts:
             raise Exception("Invalid platform")
         #remove products that didn't meet the download conditions
         for key in keys_to_remove:
-            del self.products[key]    
+            del self.products[key]
+            
+        if self.platform == "Sentinel-2": 
+            self.products = OrderedDict(sorted(self.products.items(), key=lambda x: x[1]['datatakesensingstart']))
+        elif self.platform == "Sentinel-3":
+            self.products = OrderedDict(sorted(self.products.items(), key=lambda x: x[1]['beginposition']))
     
     def filter_by_size(self, max_MB):
         """
