@@ -14,7 +14,7 @@ import utils
 from mph import MPH
 
 class OLCIdata():
-    def __init__(self, path, mask_coordinates):        
+    def __init__(self, path):        
         self.product_path = path
         
         self._product = snappy_utils.read_product(self.product_path)
@@ -38,10 +38,6 @@ class OLCIdata():
         self.lat_lon = np.dstack([latitude, longitude])
         
         self.duplicated = utils.make_flags_mask(self.quality_flags, ["duplicated"])
-        
-        self.mask_coordinates = mask_coordinates
-        
-        self.laguna_mask = self._get_laguna_mask()
         
         # path to json with metadata
         self.metadata_path = os.path.join(os.path.dirname(self.product_path), 
@@ -97,9 +93,9 @@ class OLCIdata():
             index = self.get_pos_index(coord[0], coord[1])
             self.rgb[index[0], index[1]] = color
     
-    def _get_laguna_mask(self):
-        laguna_coords = []
-        laguna_mask = self.water_mask.copy()
+    def create_polygon_mask(self, mask_coordinates):
+        self.mask_coordinates = mask_coordinates
+        polygon_mask = self.water_mask.copy()
         selected_coords_poly = Polygon(self.mask_coordinates)
         for i, row in enumerate(self.lat_lon):
             for j, val in enumerate(row):
@@ -107,10 +103,21 @@ class OLCIdata():
                 point = [point[1], point[0]]
                 point = Point(point)
                 if selected_coords_poly.contains(point):
-                    laguna_mask[i,j] = True
+                    polygon_mask[i,j] = True
                 else:
-                    laguna_mask[i,j] = False
-        return laguna_mask
+                    polygon_mask[i,j] = False
+        self.mask = polygon_mask
+        
+    def create_sparse_mask(self, mask_coordinates, radius=1):
+        self.mask_coordinates = mask_coordinates
+        mask = np.zeros_like(self.water_mask)
+        for coord in mask_coordinates:
+            i, j = self.get_pos_index(coord[0], coord[1])
+            if radius > 0:
+                mask[i-radius:i+radius, j-radius:j+radius] = True
+            else:
+                mask[i, j] = True            
+        self.mask = mask        
     
     def save_geotiff(self, path):
         #Algunas opciones de p_type: "GeoTiff":.tif y "BEAM-DIMAP":.dim
@@ -125,7 +132,8 @@ class OLCIdata():
 
 class OLCIdataGenerator():
     def __init__(self, data_path, date_format, start_date=None, end_date=None, dates_list=None, 
-                     skip_invalid=False, tagging=False, cloud_level_th=0, mask_coordinates=None):
+                     skip_invalid=False, tagging=False, cloud_level_th=0, 
+                     mask_coordinates=None, mask_type="polygon"):
         self.date_format = date_format
         self.cloud_level_th = cloud_level_th
         if start_date != None and end_date != None:
@@ -136,6 +144,7 @@ class OLCIdataGenerator():
         self.skip_invalid = skip_invalid
         self.tagging_mode = tagging
         self.mask_coordinates = mask_coordinates
+        self.mask_type = mask_type
         self.data_directories = self._get_data_directories()
             
         
@@ -177,7 +186,11 @@ class OLCIdataGenerator():
             try:
                 day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/*.dim")
                 for d in day_data_paths:
-                    instance = OLCIdata(d, self.mask_coordinates)
+                    instance = OLCIdata(d)
+                    if self.mask_type == "polygon":
+                        instance.create_polygon_mask(self.mask_coordinates)
+                    elif self.mask_type == "sparse":
+                        instance.create_sparse_mask(self.mask_coordinates)
                     yield instance
             except Exception as e:
                 print("Error in %s: %s" % (directory, str(e)))
