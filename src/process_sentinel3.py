@@ -30,7 +30,7 @@ class OLCIdata():
         
         self.water_mask = utils.make_flags_mask(self.quality_flags, ["fresh_inland_water"])
         
-        self.mph = self._get_mph()
+        self.mph, self.brrs_arrays = self._get_mph()
         
         latitude = snappy_utils.get_bands(self._product, ["latitude"])["latitude"]
         longitude = snappy_utils.get_bands(self._product, ["longitude"])["longitude"]
@@ -63,7 +63,7 @@ class OLCIdata():
         brr_bands = ["rBRR_07", "rBRR_08", "rBRR_10", "rBRR_11", "rBRR_12", "rBRR_18"]
         brrs_arrays = snappy_utils.get_bands(brrs_product, brr_bands)
         
-        return MPH(brrs_arrays)
+        return MPH(brrs_arrays), brrs_arrays
     
     def show_rgb(self):
         plt.imshow(self.rgb)
@@ -114,7 +114,7 @@ class OLCIdata():
         for coord in mask_coordinates:
             i, j = self.get_pos_index(coord[0], coord[1])
             if radius > 0:
-                mask[i-radius:i+radius, j-radius:j+radius] = True
+                mask[i-radius:i+(radius+1), j-radius:j+(radius+1)] = True
             else:
                 mask[i, j] = True            
         self.mask = mask        
