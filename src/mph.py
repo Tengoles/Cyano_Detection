@@ -1,7 +1,7 @@
 import numpy as np
 
 class MPH():
-    def __init__(self, brrs_arrays, cyano_thresh=350):
+    def __init__(self, brrs_arrays, cyano_th=350):
         self.brr_7 = brrs_arrays["rBRR_07"]
         self.brr_8 = brrs_arrays["rBRR_08"]
         self.brr_10 = brrs_arrays["rBRR_10"]
@@ -24,7 +24,7 @@ class MPH():
 
         self.MPH1 = self.Rmax1 - self.brr_8 - ((self.brr_18 - self.brr_8)*(self.lambda_max1 - 665))/(885 - 665)
 
-        _mph_output = self.run_mph(cyano_thresh)
+        _mph_output = self.run_mph(cyano_th)
 
         self.immersed_cyanobacteria = np.logical_and(_mph_output["cyano_flag"], 
                                                     np.logical_not(_mph_output["float_flag"]))
@@ -55,10 +55,10 @@ class MPH():
 
         return lambda0, lambda1
     
-    def run_mph(self, cyano_thresh):
+    def run_mph(self, cyano_th=350):
         # output of this must have three 2D bool arrays for float_flag, adj_flag and cyano_flag
         # and one 2D float array for chl estimation
-        
+        self.cyano_th = cyano_th
         chl_mph = np.zeros(self.brr_7.shape)
         float_flag = np.ones(self.brr_7.shape)
         adj_flag = np.ones(self.brr_7.shape)
@@ -74,7 +74,7 @@ class MPH():
                     else:
                         cyano_flag[i,j] = 1
                         chl_mph[i,j] = 22.44*np.exp(35.79*self.MPH1[i,j])
-                        if chl_mph[i,j] > cyano_thresh:
+                        if chl_mph[i,j] > self.cyano_th:
                             float_flag[i,j] = 1
                 else:
                     if self.MPH1[i,j] >= 0.02 or self.NDVI[i,j] >= 0.2:
@@ -86,7 +86,7 @@ class MPH():
                         else:
                             cyano_flag[i,j] = 1
                             chl_mph[i,j] = 22.44*np.exp(35.79*self.MPH1[i,j])
-                            if chl_mph[i,j] > cyano_thresh:
+                            if chl_mph[i,j] > self.cyano_th:
                                 float_flag[i,j] = 1
                             else:
                                 float_flag[i,j] = 0

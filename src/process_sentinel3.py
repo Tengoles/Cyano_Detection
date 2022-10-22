@@ -14,7 +14,7 @@ import utils
 from mph import MPH
 
 class OLCIdata():
-    def __init__(self, path):        
+    def __init__(self, path, cyano_th=350):        
         self.product_path = path
         
         self._product = snappy_utils.read_product(self.product_path)
@@ -30,7 +30,7 @@ class OLCIdata():
         
         self.water_mask = utils.make_flags_mask(self.quality_flags, ["fresh_inland_water"])
         
-        self.mph, self.brrs_arrays = self._get_mph()
+        self._get_mph(cyano_th=cyano_th)
         
         latitude = snappy_utils.get_bands(self._product, ["latitude"])["latitude"]
         longitude = snappy_utils.get_bands(self._product, ["longitude"])["longitude"]
@@ -55,7 +55,7 @@ class OLCIdata():
         trueColor_array = utils.histogram_equalization(utils.normalize_array(trueColor_array))
         return trueColor_array
     
-    def _get_mph(self):
+    def _get_mph(self, cyano_th):
         mph_bands = ["Oa07_radiance", "Oa08_radiance", "Oa10_radiance",
                     "Oa11_radiance", "Oa12_radiance", "Oa18_radiance"]
         
@@ -63,7 +63,8 @@ class OLCIdata():
         brr_bands = ["rBRR_07", "rBRR_08", "rBRR_10", "rBRR_11", "rBRR_12", "rBRR_18"]
         brrs_arrays = snappy_utils.get_bands(brrs_product, brr_bands)
         
-        return MPH(brrs_arrays), brrs_arrays
+        self.mph = MPH(brrs_arrays, cyano_th=cyano_th)
+        self.brrs_arrays = brrs_arrays
     
     def show_rgb(self):
         plt.imshow(self.rgb)
@@ -139,6 +140,9 @@ class OLCIdataGenerator():
         if start_date != None and end_date != None:
             self.start_datetime = datetime.strptime(start_date, date_format)
             self.end_datetime = datetime.strptime(end_date, date_format)
+        else:
+            self.start_datetime = None
+            self.end_datetime = None
         self.dates_list = dates_list
         self.data_path = data_path
         self.skip_invalid = skip_invalid
@@ -151,12 +155,13 @@ class OLCIdataGenerator():
     def _get_data_directories(self):
         data_directories = sorted(os.listdir(self.data_path))
         
-        if self.dates_list == None:
+        if (self.dates_list == None) and (self.start_datetime != None) and (self.end_datetime != None):
             data_directories = [date for date in data_directories if (not date.startswith(".") and
                                                                 datetime.strptime(date, self.date_format) >= self.start_datetime and 
                                                                 datetime.strptime(date, self.date_format) <= self.end_datetime)]
-        else:
+        elif self.dates_list != None:
             data_directories = [date_str for date_str in data_directories if date_str in self.dates_list]
+
         
         data_directories_temp = []
         for i, directory in enumerate(data_directories):

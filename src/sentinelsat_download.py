@@ -178,7 +178,7 @@ class SentinelsatProducts:
             download_path = os.path.join(download_directory, file_name)
             print(file_date)
             if not os.path.exists(download_directory):
-                os.makedirs(download_path)
+                os.makedirs(download_directory)
             if os.path.exists(download_path):
                 # if it was downloaded before it won't download
                 print(f"{download_path} already downloaded")
