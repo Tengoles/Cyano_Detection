@@ -55,7 +55,7 @@ class OLCIdata():
         trueColor_array = utils.histogram_equalization(utils.normalize_array(trueColor_array))
         return trueColor_array
     
-    def _get_mph(self, cyano_th):
+    def _get_mph(self, cyano_th=350):
         mph_bands = ["Oa07_radiance", "Oa08_radiance", "Oa10_radiance",
                     "Oa11_radiance", "Oa12_radiance", "Oa18_radiance"]
         
@@ -134,7 +134,7 @@ class OLCIdata():
 class OLCIdataGenerator():
     def __init__(self, data_path, date_format, start_date=None, end_date=None, dates_list=None, 
                      skip_invalid=False, tagging=False, cloud_level_th=0, 
-                     mask_coordinates=None, mask_type="polygon"):
+                     mask_coordinates=None, mask_type=None):
         self.date_format = date_format
         self.cloud_level_th = cloud_level_th
         if start_date != None and end_date != None:
