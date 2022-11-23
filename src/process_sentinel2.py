@@ -128,14 +128,11 @@ class DayData():
         return list(zip(result[0], result[1]))[0]
     
     def paint_coords(self, coords, color, radius=3):
-        pbar = tqdm(total=len(coords))
         for coord in coords:
             index = self.get_pos_index(coord[0], coord[1])
             center_coordinates = (index[1], index[0])
             self.rgb = cv2.circle(self.rgb, center_coordinates, radius, color, -1)
-            pbar.update(1)
             #self.rgb[index[0], index[1]] = color
-        pbar.close()
     
     def get_NDCI(self):
         ndci = (self.bands["B5"] - self.bands["B4"])/(self.bands["B5"] + self.bands["B4"])
@@ -182,18 +179,24 @@ class DayDataGenerator():
         
         data_directories_temp = []
         for i, directory in enumerate(data_directories):
-            metadata_path = os.path.join(self.data_path, directory, "metadata.json")
+            msi_directory = os.path.join(self.data_path, directory, "MSI")
+            if os.path.exists(msi_directory):
+                 if len(os.listdir(msi_directory)) < 5:
+                    continue
+            else:
+                continue
+            metadata_path = os.path.join(msi_directory, "metadata.json")
             # days without metadata are ignored
             if os.path.exists(metadata_path):
                 with open(metadata_path) as f:
                     metadata =  json.load(f)
                 if self.skip_invalid:
                     if int(metadata["cloud level"]) <= self.cloud_level_th:
-                        data_directories_temp.append(directory)
+                        data_directories_temp.append(msi_directory)
                 else:
-                    data_directories_temp.append(directory)
+                    data_directories_temp.append(msi_directory)
             elif self.tagging_mode:
-                data_directories_temp.append(directory)
+                data_directories_temp.append(msi_directory)
                     
         data_directories = data_directories_temp
                 
@@ -202,8 +205,7 @@ class DayDataGenerator():
     def __iter__(self):
         for directory in self.data_directories:                
             try:
-                day_data_path = os.path.join(self.data_path, directory)
-                instance = DayData(day_data_path)
+                instance = DayData(directory)
                 yield instance
             except Exception as e:
                 print("Error in %s: %s" % (directory, str(e)))

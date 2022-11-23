@@ -41,7 +41,7 @@ class ClusteringProcessing:
         pbar = tqdm(total=self.mask.height*self.mask.width)
         for i in range(self.mask.height):
             for j in range(self.mask.width):
-                if self.mask.array[i, j] == 255:
+                if self.mask.array[i, j] == 1:
                     clustering_dataset.append(list(ndci_dataset_array[i, j, :]))
                     original_indexes.append([i, j])
                 pbar.update(1)
@@ -58,6 +58,7 @@ class ClusteringProcessing:
     
     def _perform_kmeans(self):
         X = self.dataset["data"]
+        print(X)
         clustering = KMeans(n_clusters=self.k_clusters, random_state=0).fit(X)
         return clustering.labels_
         
