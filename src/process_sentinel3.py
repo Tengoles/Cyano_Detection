@@ -132,7 +132,7 @@ class OLCIdata():
             return {}
 
 class OLCIdataGenerator():
-    def __init__(self, data_path, date_format, start_date=None, end_date=None, dates_list=None, 
+    def __init__(self, data_path, date_format='%Y-%m-%d', start_date=None, end_date=None, dates_list=None, 
                      skip_invalid=False, tagging=False, cloud_level_th=0, 
                      mask_coordinates=None, mask_type=None):
         self.date_format = date_format
@@ -160,7 +160,10 @@ class OLCIdataGenerator():
                                                                 datetime.strptime(date, self.date_format) >= self.start_datetime and 
                                                                 datetime.strptime(date, self.date_format) <= self.end_datetime)]
         elif self.dates_list != None:
-            data_directories = [date_str for date_str in data_directories if date_str in self.dates_list]
+            if type(self.dates_list[0]) == str:
+                data_directories = [d for d in data_directories if d in self.dates_list]
+            else:
+                data_directories = [d for d in data_directories if datetime.strptime(d, self.date_format).date() in self.dates_list]
 
         
         data_directories_temp = []

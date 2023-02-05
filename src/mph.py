@@ -41,7 +41,7 @@ class MPH():
         
     def determine_Rmax(self):
         Rmax0 = np.maximum(self.brr_10, self.brr_11)
-        Rmax1 = np.maximum(Rmax0, self.brr_12)
+        Rmax1 = np.maximum.reduce([self.brr_10, self.brr_11, self.brr_12])
         return Rmax0, Rmax1
 
     def determine_lambdaMax(self):
@@ -50,8 +50,7 @@ class MPH():
         lambda_brr12 = 753.75
 
         lambda0 = np.where(self.Rmax0 == self.brr_11, lambda_brr11, lambda_brr10)
-
-        lambda1 = np.where(self.Rmax1 == self.brr_12, lambda_brr12, lambda0) 
+        lambda1 = np.where(self.Rmax1 == self.brr_12, lambda_brr12, lambda0)
 
         return lambda0, lambda1
     
