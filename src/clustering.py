@@ -10,6 +10,7 @@ import random
 from sklearn.cluster import KMeans
 
 CLUSTERS_COLORS = [[240, 15, 15], [240,163,255], [153,63,0], [43,206,72], [255,204,153], [31, 49, 209], [255,255,255]]
+#CLUSTERS_COLORS = [[255,255,255], [240,163,255], [153,63,0], [43,206,72], [255,204,153], [31, 49, 209], [0, 0, 0]]
 
 class ClusteringProcessing:
     def __init__(self, day_data_generator, mask, clustering_algorithm="kmeans", k_clusters=4):
@@ -58,7 +59,7 @@ class ClusteringProcessing:
     
     def _perform_kmeans(self):
         X = self.dataset["data"]
-        print(X)
+        #print(X)
         clustering = KMeans(n_clusters=self.k_clusters, random_state=0).fit(X)
         return clustering.labels_
         
@@ -122,11 +123,11 @@ class ClusteringProcessing:
         
 
 if __name__ == "__main__":
-    DATA_PATH = "data"
+    DATA_PATH = "../data/processed/"
     DATE_FORMAT = '%Y-%m-%d'
     START_DATE = '2016-12-21'
     END_DATE = '2021-04-20'
-    MASKS_DIR = "water_mask"
+    MASKS_DIR = "../data/misc/water_masks/selected"
     
     day_data_generator = process_sentinel2.DayDataGenerator(START_DATE, END_DATE, DATE_FORMAT, DATA_PATH, skip_invalid=True)
     
