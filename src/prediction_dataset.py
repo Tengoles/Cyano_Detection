@@ -96,7 +96,7 @@ class PredictionDataset():
     
     def _load_algae(self):
         algae_gt_df = pd.read_csv(self.algae_gt_path)
-        algae_gt_df["date"] = pd.to_datetime(algae_gt_df['date']).dt.date
+        algae_gt_df["date"] = pd.to_datetime(algae_gt_df['date'])
         return algae_gt_df
     
     def _load_s3_brrs(self):

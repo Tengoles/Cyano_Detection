@@ -20,7 +20,7 @@ class Sentinel3Products:
         self.date_start = date_start
         self.date_finish = date_finish
         self.api = SentinelAPI(settings.sentinel_api_user, settings.sentinel_api_key, 
-                               'https://scihub.copernicus.eu/dhus')
+                               'https://scihub.copernicus.eu/apihub')
         self.wkt_footprint = footprint
         self.platform_name = platformname
         self.instrument = instrument
@@ -28,7 +28,7 @@ class Sentinel3Products:
         self.p_type = p_type
         self.products = self.api.query(self.wkt_footprint, area_relation='Contains',
                             date = (self.date_start, self.date_finish),
-                            platformname = platform)
+                            platformname = self.platform_name)
     
     def filter_products(self, instrument, level, p_type, timeliness):
         removed_products = []
@@ -75,7 +75,7 @@ class Sentinel3Products:
                 
 class SentinelsatProducts:
     def __init__(self, date_start, date_finish, footprint,
-                 platformname, instrument, level=None, p_type=None):
+                 platformname, instrument, level=None, p_type=None, area_relation="Contains"):
         self.date_start = date_start
         self.date_finish = date_finish
         self.platform = platformname
@@ -83,6 +83,7 @@ class SentinelsatProducts:
         self.level = level
         self.p_type = p_type
         self.wkt_footprint = footprint
+        self.area_relation = area_relation
         
         self.api = SentinelAPI(SENTINEL_API_USER, SENTINEL_API_KEY, 'https://scihub.copernicus.eu/dhus')
         #self.api.logger.setLevel(logging.DEBUG)
@@ -96,11 +97,11 @@ class SentinelsatProducts:
     def query_products(self):
         # search by polygon, time, and Hub query keywords
         if self.platform == "Sentinel-3" and self.instrument == "OLCI":
-            products = self.api.query(self.wkt_footprint, area_relation='Contains',
+            products = self.api.query(self.wkt_footprint, area_relation=self.area_relation,
                             date=(self.date_start - timedelta(days=1), self.date_finish + timedelta(days=1)), platformname=self.platform,
                             instrumentname='Ocean Land Colour Instrument', productlevel=self.level, producttype="OL_1_EFR___")
         else:
-             products = self.api.query(self.wkt_footprint, area_relation='Contains',
+             products = self.api.query(self.wkt_footprint, area_relation=self.area_relation,
                             date=(self.date_start, self.date_finish), platformname=self.platform,
                             producttype=self.p_type)
         return products

@@ -1,7 +1,10 @@
 import numpy as np
+import pandas as pd
 import cv2
 import snappy_utils
+import xlrd
 from astropy.nddata import bitmask
+from datetime import datetime
 
 def bands_to_array(bands_dict):
     data_shape = bands_dict[list(bands_dict.keys())[0]].shape
@@ -9,6 +12,83 @@ def bands_to_array(bands_dict):
     for i, band in enumerate(bands_dict):
         output[:, :, i] = bands_dict[band]
     return output
+
+def parse_ficocianina_xls(xls_path, ordered_locations, levels=2):
+    book = xlrd.open_workbook(xls_path)
+    parsed_ficocianina = []
+    for sheet_index, sheet_name in enumerate(book.sheet_names()):
+        parsed_row = {}
+        parsed_row["date"] = datetime.strptime(sheet_name, "%d %m %y")
+        sheet = book.sheet_by_index(sheet_index)
+        for col_index in range(sheet.ncols):
+            col_data = sheet.col_values(col_index)
+            if "Ficocianina" in col_data:
+                # needed because some cols have wrong name
+                correct_column = False
+                for row_value in col_data:
+                    try:
+                        fico_value = float(row_value)
+                        if fico_value > 500:
+                            ficocianina_column = col_data
+                            correct_column = True
+                            break
+                    except ValueError:
+                        pass
+                if not correct_column: continue
+                    
+                # look for '' to split by location
+                separation_count = 0
+                location_ficos_by_depth = []
+                if sheet_name == "22 11 17": print(ficocianina_column)
+                for fico_index, fico_value in enumerate(ficocianina_column):
+                    if type(fico_value) == float:
+                        location_ficos_by_depth.append(fico_value)
+                    else:
+                        if len(location_ficos_by_depth) >= levels and separation_count < len(ordered_locations):
+                            parsed_row["location"] = ordered_locations[separation_count]
+                            parsed_row["fico"] = sum(location_ficos_by_depth[0:levels])/len(location_ficos_by_depth[0:levels])
+                            parsed_ficocianina.append(parsed_row)
+                            parsed_row = {}
+                            parsed_row["date"] = datetime.strptime(sheet_name, "%d %m %y")
+                            location_ficos_by_depth = []
+                            separation_count += 1
+                            
+    ficocianina_df = pd.DataFrame(parsed_ficocianina)
+    print(ficocianina_df)
+    
+    parsed_chl = []
+    for sheet_index, sheet_name in enumerate(book.sheet_names()):
+        parsed_row = {}
+        parsed_row["date"] = datetime.strptime(sheet_name, "%d %m %y")
+        sheet = book.sheet_by_index(sheet_index)
+        for col_index in range(sheet.ncols):
+            col_data = sheet.col_values(col_index)
+            if "Chla" in col_data:
+                chl_column = col_data
+                # look for '' to split by location
+                separation_count = 0
+                location_chl_by_depth = []
+                for chl_index, chl_value in enumerate(chl_column):
+                    if type(chl_value) == float:
+                        location_chl_by_depth.append(chl_value)
+                    else:
+                        if len(location_chl_by_depth) >= levels and separation_count < len(ordered_locations):
+                            parsed_row["location"] = ordered_locations[separation_count]
+                            parsed_row["chl"] = sum(location_chl_by_depth[0:levels])/len(location_chl_by_depth[0:levels])
+                            parsed_chl.append(parsed_row)
+                            parsed_row = {}
+                            parsed_row["date"] = datetime.strptime(sheet_name, "%d %m %y")
+                            location_chl_by_depth = []
+                            separation_count += 1
+    chl_df = pd.DataFrame(parsed_chl)
+    print(chl_df)
+
+    parsed_algae_df = ficocianina_df.copy()
+    parsed_algae_df["chl"] = chl_df["chl"]
+    parsed_algae_df["date"] = pd.to_datetime(parsed_algae_df['date']).dt.date
+
+    return parsed_algae_df
+
 
 def normalize_array(array):
     return cv2.normalize(src=array, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)

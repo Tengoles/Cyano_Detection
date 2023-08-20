@@ -118,7 +118,22 @@ class OLCIdata():
                 mask[i-radius:i+(radius+1), j-radius:j+(radius+1)] = True
             else:
                 mask[i, j] = True            
-        self.mask = mask        
+        self.mask = mask
+
+    def get_mph_bloom_in_locations(self, input_locations, radius=1):
+        self.create_sparse_mask(input_locations, radius)
+            
+        immersed_mask = self.mph.immersed_cyanobacteria*self.mask
+        count_immersed = np.count_nonzero(immersed_mask)
+        
+        floating_mask = self.mph.floating_cyanobacteria*self.mask
+        count_floating = np.count_nonzero(floating_mask)
+        
+        count_total = count_immersed + count_floating
+
+        return count_total > 0
+
+        
     
     def save_geotiff(self, path):
         #Algunas opciones de p_type: "GeoTiff":.tif y "BEAM-DIMAP":.dim
