@@ -5,7 +5,7 @@ from datetime import timedelta
 
 class PredictionDataset():
     def __init__(self, wind_data_path, water_temperature_data_path, precipitation_data_path, 
-                     ndci_data_path, algae_gt_path, s3_brrs_path, bloom_thresholds):
+                     ndci_data_path, algae_gt_path, s3_brrs_path, bloom_thresholds, pre_bloom_max_days):
         
         self.bloom_thresholds = bloom_thresholds 
         self.wind_data_path = wind_data_path
@@ -22,7 +22,8 @@ class PredictionDataset():
         self.s3_brrs_data = self._load_s3_brrs()
         self.algae_gt = self._load_algae()
         
-        self.blooming_gt = self.make_blooming_gt()
+        self.pre_bloom_max_days = pre_bloom_max_days
+        self.bloom_forecast_gt = self.make_bloom_forecast_gt()
         
     def _load_wind(self):
         wind_df = pd.read_csv(self.wind_data_path)
@@ -97,7 +98,16 @@ class PredictionDataset():
     def _load_algae(self):
         algae_gt_df = pd.read_csv(self.algae_gt_path)
         algae_gt_df["date"] = pd.to_datetime(algae_gt_df['date'])
-        return algae_gt_df
+
+        output = pd.DataFrame()
+        for location_name, threshold in self.bloom_thresholds.items():
+            location_df = algae_gt_df[algae_gt_df["location"] == location_name]
+            # Apply the condition and assign values to the "label" column
+            location_df['label'] = location_df['fico'].apply(lambda x: 'Bloom' if x > threshold else 'No Bloom')
+            output = pd.concat([output, location_df])
+        output = output.sort_values(by=['date'], ascending=True)
+
+        return output
     
     def _load_s3_brrs(self):
         with open(self.s3_brrs_path) as json_file:
@@ -131,32 +141,53 @@ class PredictionDataset():
             output.append(row)
         return pd.DataFrame(output)
     
-    def make_blooming_gt(self):
+    def convert_days_until_bloom(self, days_until_bloom):
+            if days_until_bloom > self.pre_bloom_max_days:
+                return "No Bloom"
+            elif days_until_bloom == 0:
+                return "Bloom"
+            else:
+                return "Pre Bloom"
+    
+    def make_bloom_forecast_gt(self):
         output = pd.DataFrame()
+        # Iterate over every unique location
         for location in self.algae_gt["location"].unique():
-            days_before_bloom_col = []
+            days_until_bloom = []
+            # Subselect GT dataset df keeping keeping only data from current location
             location_data_df = self.algae_gt[self.algae_gt["location"] == location]
-            for i, day_data in location_data_df.iterrows():
+            # Iterate over every row of the subselected dataframe. Row contains date, location name and ficocyanin measure 
+            for day_index, day_data in location_data_df.iterrows():
                 day_date = day_data["date"]
                 day_cyano = day_data["fico"]
-                if day_cyano >= self.bloom_thresholds[location]:
-                    days_before_bloom_col.append("In bloom")
+                # If fico measure on this day is higher than threshold, classify this day as "Bloom" and go to next one.
+                if day_cyano >= self.bloom_thresholds[location]:                    
+                    days_until_bloom.append(0)
                 else:
-                    try:
-                        if location_data_df.loc[i+1]["fico"] >= self.bloom_thresholds[location] and (location_data_df.loc[i+1]["date"] - day_date).days <= 3:
-                            days_before_bloom_col.append(str((location_data_df.loc[i+1]["date"] - day_date).days) + " days before bloom")
-                        elif location_data_df.loc[i+2]["fico"] >= self.bloom_thresholds[location] and (location_data_df.loc[i+2]["date"] - day_date).days <= 3:
-                            days_before_bloom_col.append(str((location_data_df.loc[i+2]["date"] - day_date).days) + " days before bloom")
-                        elif location_data_df.loc[i+3]["fico"] >= self.bloom_thresholds[location] and (location_data_df.loc[i+3]["date"] - day_date).days <= 3:
-                            days_before_bloom_col.append(str((location_data_df.loc[i+3]["date"] - day_date).days) + " days before bloom")
-                        else:
-                            days_before_bloom_col.append("Far from bloom")
-                    except KeyError:
-                        days_before_bloom_col.append("Far from bloom")
-            location_data_df["label"] = days_before_bloom_col
+                    # Else if fico measure is below threshold, subselect location df to keep only days after the current day being processed
+                    following_days_df = location_data_df[location_data_df['date'] > day_date]
+                    # Iterate over df containing data from the days following the current one being processed
+                    next_bloom_found = False
+                    for following_day_index, following_day in following_days_df.iterrows():
+                        if following_day["fico"] >= self.bloom_thresholds[location]:
+                            # Get day count until next bloom
+                            next_bloom_days_count = (following_day["date"] - day_date).days
+                            days_until_bloom.append(next_bloom_days_count)
+                            next_bloom_found = True
+                            break
+                    if not next_bloom_found:
+                        days_until_bloom.append(999)
+            location_data_df["days until bloom"] = days_until_bloom
             output = pd.concat([output, location_data_df])
         output = output.sort_values(by="date")
+
+        output["forecast label"] = output["days until bloom"].apply(self.convert_days_until_bloom)
         return output
+    
+    def change_bloom_forecast_label(self, new_pre_bloom_max_days):
+        self.pre_bloom_max_days = new_pre_bloom_max_days
+        self.bloom_forecast_gt["forecast label"] = self.bloom_forecast_gt["days until bloom"].apply(self.convert_days_until_bloom)
+
     
 def merge_locations(df):
     output = []
