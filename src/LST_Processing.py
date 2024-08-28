@@ -60,7 +60,7 @@ class LST():
         https://forum.step.esa.int/t/sentinel-3-slstr-level-2-lst-problem-with-clouds-and-temperature-amplitude/22551/3
         """
         bayes_in = snappy_utils.get_bands(self._product, ["bayes_in"])["bayes_in"]
-        bayes_in[bayes_in > 0] = 1
+        bayes_in[bayes_in == 2] = 1
         
         return bayes_in.astype(bool)
         
@@ -75,6 +75,18 @@ class LST():
         all_distances = np.sqrt(lat_distances**2 + lon_distances**2)
         result = np.where(all_distances == np.amin(all_distances))
         return list(zip(result[0], result[1]))[0]
+    
+    def make_mask_from_coords(self, coords: list):
+        output = np.zeros_like(self.lst)
+        for coord in coords:
+            lat = coord[0]
+            lon = coord[1]
+            i, j = self.get_pos_index(lat, lon)
+            output[i, j] = 1
+        return output
+
+
+
         
 
 class LSTDataset():
@@ -152,7 +164,6 @@ class LSTDataset():
     
 def find_best_temperature_candidate(temps):
     best_candidates = []
-    best_candidate = None
     for i, t in enumerate(temps):
         cond1 = np.count_nonzero(t.valid_pixels_mask) > 10
         cond2 = t.water_temperature > 5
@@ -203,14 +214,22 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
         parser.add_argument("-i", "--input_date", help="Date in format YYYY-MM-DD to get data from",
                         required=True)
+        parser.add_argument("-o", "--output_path", help="path to txt file where result will be appended",
+                        required=True)
 
         return parser
     
     args = get_parser().parse_args()
     vd = args.input_date
     vd = datetime.strptime(vd, '%Y-%m-%d').date()
+    output_path = args.output_path
 
-    lst_dataset = LSTDataset(settings.data_path, settings.footprint)
+    lst_dataset = LSTDataset(settings.raw_data_path, settings.footprint)
+
+    sampling_points_coords = {"SAUCE NORTE": [-34.795398, -55.047355],
+                          "SAUCE SUR": [-34.843127, -55.064624],
+                          "TA": [-34.829670, -55.049758]}
+    sampling_points_coords = [v for k, v in sampling_points_coords.items()]
     
     try:
 
@@ -227,10 +246,13 @@ if __name__ == "__main__":
         valid_lst_data = filter_valid_temps(temperature_data)
         valid_lst_data = sorted(valid_lst_data, key=lambda x:x.capture_datetime)
         for lst in valid_lst_data:
-            with open('temp_output.txt', 'a') as f:
-                f.write(datetime.strftime(lst.capture_datetime, "%Y-%m-%d %H:%M") + "," + str(lst.water_temperature) + "\n")
+            sampling_points_mask = lst.make_mask_from_coords(sampling_points_coords)
+    
+            water_temp_avg = lst.lst[np.nonzero(sampling_points_mask)].mean()
+            with open(output_path, 'a') as f:
+                f.write(datetime.strftime(lst.capture_datetime, "%Y-%m-%d %H:%M") + "," + str(int(round(water_temp_avg, 0))) + "\n")
     except Exception as e:
-        with open('temp_output.txt', 'a') as f:
+        with open(output_path, 'a') as f:
             f.write(str(vd) + "," + "Exception raised:" + str(e) + "\n")
         
         

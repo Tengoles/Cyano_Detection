@@ -9,6 +9,7 @@ import settings
 import zipfile
 from collections import OrderedDict
 from datetime import timedelta
+from datetime import datetime
 
 SENTINEL_API_USER = settings.sentinel_api_user
 SENTINEL_API_KEY = settings.sentinel_api_key
@@ -106,18 +107,25 @@ class SentinelsatProducts:
                             producttype=self.p_type)
         return products
     
-    def filter_by_dates(self, dates_list):
+    def filter_by_dates(self, dates_list, filter_time_of_day=False):
         """
         dates_list must be list of datetetime.date() objects
         """
-        if self.platform == "Sentinel-2":
-            keys_to_remove = [p_key for p_key, product in self.products.items() \
-                          if not (product['datatakesensingstart'].date() in dates_list)]
-        elif self.platform == "Sentinel-3":
-            keys_to_remove = [p_key for p_key, product in self.products.items() \
-                          if not (product['beginposition'].date() in dates_list)]
-        else:
-            raise Exception("Invalid platform")
+        keys_to_remove = []
+        for p_key, product in self.products.items():
+            if self.platform == "Sentinel-2":
+                capture_datetime = product['datatakesensingstart']
+            elif self.platform == "Sentinel-3":
+                capture_datetime = product['beginposition']
+            else:
+                raise Exception("Invalid platform")
+            
+            if not (capture_datetime.date() in dates_list):
+                keys_to_remove.append(p_key)
+                continue
+            if filter_time_of_day and (capture_datetime.hour < 10 or capture_datetime.hour > 16): 
+                keys_to_remove.append(p_key)
+                continue
         #remove products that didn't meet the download conditions
         for key in keys_to_remove:
             del self.products[key]
@@ -137,10 +145,11 @@ class SentinelsatProducts:
         for key in keys_to_remove:
             del self.products[key]
     
-    def filter_products(self, instrument, level, p_type, timeliness, filter_distance=True):
+    def filter_products(self, instrument, level, p_type, timeliness, filter_time_of_day=False):
         removed_products = []
         for product_key in self.products:
             odata = self.api.get_product_odata(product_key, full=True)
+            if filter_time_of_day and (odata["date"].hour < 10 or odata["date"].hour) > 16: continue
             #print(odata)
             if self.platform == "Sentinel-3":
                 product_instrument = odata["Instrument"]
@@ -177,7 +186,7 @@ class SentinelsatProducts:
             
             download_directory = os.path.join(data_path, file_date)
             download_path = os.path.join(download_directory, file_name)
-            print(file_date)
+            print(self.products[key]["beginposition"])
             if not os.path.exists(download_directory):
                 os.makedirs(download_directory)
             if os.path.exists(download_path):

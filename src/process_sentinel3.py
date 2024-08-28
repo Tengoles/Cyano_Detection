@@ -8,7 +8,6 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 
-import settings
 import snappy_utils
 import utils
 from mph import MPH
@@ -31,6 +30,8 @@ class OLCIdata():
         self.water_mask = utils.make_flags_mask(self.quality_flags, ["fresh_inland_water"])
         
         self._get_mph(cyano_th=cyano_th)
+
+        self._get_ndci()
         
         latitude = snappy_utils.get_bands(self._product, ["latitude"])["latitude"]
         longitude = snappy_utils.get_bands(self._product, ["longitude"])["longitude"]
@@ -38,6 +39,7 @@ class OLCIdata():
         self.lat_lon = np.dstack([latitude, longitude])
         
         self.duplicated = utils.make_flags_mask(self.quality_flags, ["duplicated"])
+        self.duplicated_pixel_ratio = self._get_duplicated_pixel_ratio()
         
         # path to json with metadata
         self.metadata_path = os.path.join(os.path.dirname(self.product_path), 
@@ -55,6 +57,12 @@ class OLCIdata():
         trueColor_array = utils.histogram_equalization(utils.normalize_array(trueColor_array))
         return trueColor_array
     
+    def _get_ndci(self):
+        ndci_bands = ["Oa10_radiance", "Oa11_radiance"]
+        ndci_bands_dict = snappy_utils.get_bands(self._product, ndci_bands)
+        ndci = (ndci_bands_dict["Oa11_radiance"] - ndci_bands_dict["Oa10_radiance"])/(ndci_bands_dict["Oa11_radiance"] + ndci_bands_dict["Oa10_radiance"])
+        self.ndci = ndci
+    
     def _get_mph(self, cyano_th=350):
         mph_bands = ["Oa07_radiance", "Oa08_radiance", "Oa10_radiance",
                     "Oa11_radiance", "Oa12_radiance", "Oa18_radiance"]
@@ -65,6 +73,12 @@ class OLCIdata():
         
         self.mph = MPH(brrs_arrays, cyano_th=cyano_th)
         self.brrs_arrays = brrs_arrays
+
+    def _get_duplicated_pixel_ratio(self):
+        total_pixels = self.duplicated.shape[0] * self.duplicated.shape[1]
+        total_duplicated_pixels = np.count_nonzero(self.duplicated)
+        duplicated_pixel_ratio = total_duplicated_pixels/total_pixels
+        return duplicated_pixel_ratio
     
     def show_rgb(self):
         plt.imshow(self.rgb)
@@ -210,6 +224,8 @@ class OLCIdataGenerator():
                 day_data_paths = glob.glob(os.path.join(self.data_path, directory, "OLCI")+"/*.dim")
                 for d in day_data_paths:
                     instance = OLCIdata(d)
+                    if instance.duplicated_pixel_ratio > 0.50 and self.skip_invalid:
+                        continue
                     if self.mask_type == "polygon":
                         instance.create_polygon_mask(self.mask_coordinates)
                     elif self.mask_type == "sparse":
